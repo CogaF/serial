@@ -51,13 +51,17 @@ Serial::SerialImpl::~SerialImpl ()
   CloseHandle(read_mutex);
   CloseHandle(write_mutex);
 }
-
+/*
+    An open port has ne reason to throw and exception thus i will comment
+    the part that is not need
+*/
 void
 Serial::SerialImpl::open ()
 {
   if (port_.empty ()) {
     throw invalid_argument ("Empty port is invalid.");
   }
+  /*
   if (is_open_ == true) {
     throw SerialException ("Serial port already open.");
   }
@@ -75,11 +79,13 @@ Serial::SerialImpl::open ()
 
   if (fd_ == INVALID_HANDLE_VALUE) {
     DWORD create_file_err = GetLastError();
-	stringstream ss;
+    stringstream ss;
     switch (create_file_err) {
     case ERROR_FILE_NOT_FOUND:
       // Use this->getPort to convert to a std::string
-      ss << "Specified port, " << this->getPort() << ", does not exist.";
+      //MODIFICATION FROM ORIGINAL
+        //since getPort() was changed to wstring now it must be transformed to c.str()
+      ss << "Specified port, " << this->getPort().c_str() << ", does not exist.";
       THROW (IOException, ss.str().c_str());
     default:
       ss << "Unknown error opening the serial port: " << create_file_err;
@@ -89,6 +95,75 @@ Serial::SerialImpl::open ()
 
   reconfigurePort();
   is_open_ = true;
+  */
+
+  if (is_open_ == false) {
+      // See: https://github.com/wjwwood/serial/issues/84
+      wstring port_with_prefix = _prefix_port_if_needed(port_);
+      LPCWSTR lp_port = port_with_prefix.c_str();
+      fd_ = CreateFileW(lp_port,
+          GENERIC_READ | GENERIC_WRITE,
+          0,
+          0,
+          OPEN_EXISTING,
+          FILE_ATTRIBUTE_NORMAL,
+          0);
+
+      if (fd_ == INVALID_HANDLE_VALUE) {
+          DWORD create_file_err = GetLastError();
+          stringstream ss;
+          switch (create_file_err) {
+          case ERROR_FILE_NOT_FOUND:
+              // Use this->getPort to convert to a std::string
+              //MODIFICATION FROM ORIGINAL
+                //since getPort() was changed to wstring now it must be transformed to c.str()
+              ss << "Specified port, " << this->getPort().c_str() << ", does not exist.";
+              THROW(IOException, ss.str().c_str());
+          default:
+              ss << "Unknown error opening the serial port: " << create_file_err;
+              THROW(IOException, ss.str().c_str());
+          }
+      }
+
+      reconfigurePort();
+      is_open_ = true;
+  }
+  /*
+    In case port ha been changed and needs to be reopened with different parameters
+    i have no knowledge if this can happen but if not than it will not matter closing and reopening
+  */
+  else {
+      this->close();
+      // See: https://github.com/wjwwood/serial/issues/84
+      wstring port_with_prefix = _prefix_port_if_needed(port_);
+      LPCWSTR lp_port = port_with_prefix.c_str();
+      fd_ = CreateFileW(lp_port,
+          GENERIC_READ | GENERIC_WRITE,
+          0,
+          0,
+          OPEN_EXISTING,
+          FILE_ATTRIBUTE_NORMAL,
+          0);
+
+      if (fd_ == INVALID_HANDLE_VALUE) {
+          DWORD create_file_err = GetLastError();
+          stringstream ss;
+          switch (create_file_err) {
+          case ERROR_FILE_NOT_FOUND:
+              // Use this->getPort to convert to a std::string
+              //MODIFICATION FROM ORIGINAL
+                //since getPort() was changed to wstring now it must be transformed to c.str()
+              ss << "Specified port, " << this->getPort().c_str() << ", does not exist.";
+              THROW(IOException, ss.str().c_str());
+          default:
+              ss << "Unknown error opening the serial port: " << create_file_err;
+              THROW(IOException, ss.str().c_str());
+          }
+      }
+
+      reconfigurePort();
+      is_open_ = true;
+  }
 }
 
 void
@@ -363,10 +438,10 @@ Serial::SerialImpl::setPort (const string &port)
   port_ = wstring(port.begin(), port.end());
 }
 
-string
+wstring
 Serial::SerialImpl::getPort () const
 {
-  return string(port_.begin(), port_.end());
+  return wstring(port_.begin(), port_.end());
 }
 
 void
