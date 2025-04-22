@@ -1,3 +1,15 @@
+This fork is intended to keep track of my personal needed modifications which consist in:
+- method getPort(), made it to return wstring instead of string. This to avoid warning in building the library
+- method open(), made it to not throw exception and if port is already open, close and reopen the port. This because, for my purpose, it is not useful to have and exception thrown.
+
+I'm keeping it public in case anyone feels this modification is helpful. Below the original readme of the library.
+
+### Author of the (tiny) modification
+
+
+Coga Fation <coga.fation@gmail.com>
+
+
 # Serial Communication Library
 
 [![Build Status](https://travis-ci.org/wjwwood/serial.svg?branch=master)](https://travis-ci.org/wjwwood/serial)*(Linux and OS X)* [![Build Status](https://ci.appveyor.com/api/projects/status/github/wjwwood/serial)](https://ci.appveyor.com/project/wjwwood/serial)*(Windows)*

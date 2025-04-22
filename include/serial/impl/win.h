@@ -126,7 +126,9 @@ public:
   void
   setPort (const string &port);
 
-  string
+  //MODIFICATION FROM ORIGINAL
+  //from string to wstring to remove warning on wchar to char loss of information
+  wstring
   getPort () const;
 
   void

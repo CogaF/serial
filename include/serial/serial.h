@@ -188,9 +188,14 @@ public:
   /*! Destructor */
   virtual ~Serial ();
 
-  /*!
+  /*
+   * Changes made on 21/04/2025 
+   * 
    * Opens the serial port as long as the port is set and the port isn't
-   * already open.
+   * already open. <- This was changed into:
+   * 
+   * Opens the serial port as long as the port is set in case it was already open no
+   * exception will be thrown but port will be closed and reopen
    *
    * If the port is provided to the constructor then an explicit call to open
    * is not needed.
@@ -417,8 +422,11 @@ public:
    * \see Serial::setPort
    *
    * \throw std::invalid_argument
+   * 
+   * //MODIFICATION FROM ORIGINAL
+   * //from string to wstring to remove warning on wchar to char loss of information
    */
-  std::string
+  std::wstring
   getPort () const;
 
   /*! Sets the timeout for reads and writes using the Timeout struct.

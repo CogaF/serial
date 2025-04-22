@@ -139,6 +139,7 @@ Serial::read (std::vector<uint8_t> &buffer, size_t size)
   }
   catch (const std::exception &e) {
     delete[] buffer_;
+    (void)e;
     throw;
   }
 
@@ -158,6 +159,7 @@ Serial::read (std::string &buffer, size_t size)
   }
   catch (const std::exception &e) {
     delete[] buffer_;
+    (void)e;
     throw;
   }
   buffer.append (reinterpret_cast<const char*>(buffer_), bytes_read);
@@ -290,7 +292,9 @@ Serial::setPort (const string &port)
   if (was_open) open ();
 }
 
-string
+//MODIFICATION FROM ORIGINAL
+//from string to wstring to remove warning on wchar to char loss of information
+std::wstring
 Serial::getPort () const
 {
   return pimpl_->getPort ();
