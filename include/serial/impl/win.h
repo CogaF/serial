@@ -54,6 +54,11 @@ using serial::IOException;
 
 class serial::Serial::SerialImpl {
 public:
+
+  //std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+
+  std::string utf8_from_wchar(const std::wstring& wstr);
+
   SerialImpl (const string &port,
               unsigned long baudrate,
               bytesize_t bytesize,

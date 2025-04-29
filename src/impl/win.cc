@@ -117,7 +117,7 @@ Serial::SerialImpl::open ()
               // Use this->getPort to convert to a std::string
               //MODIFICATION FROM ORIGINAL
                 //since getPort() was changed to wstring now it must be transformed to c.str()
-              ss << "Specified port, " << this->getPort().c_str() << ", does not exist.";
+              ss << "Specified port, " << utf8_from_wchar(this->getPort().c_str()) << ", does not exist.";
               THROW(IOException, ss.str().c_str());
           default:
               ss << "Unknown error opening the serial port: " << create_file_err;
@@ -153,7 +153,7 @@ Serial::SerialImpl::open ()
               // Use this->getPort to convert to a std::string
               //MODIFICATION FROM ORIGINAL
                 //since getPort() was changed to wstring now it must be transformed to c.str()
-              ss << "Specified port, " << this->getPort().c_str() << ", does not exist.";
+              ss << "Specified port, " << utf8_from_wchar(this->getPort().c_str()) << ", does not exist.";
               THROW(IOException, ss.str().c_str());
           default:
               ss << "Unknown error opening the serial port: " << create_file_err;
@@ -164,6 +164,21 @@ Serial::SerialImpl::open ()
       reconfigurePort();
       is_open_ = true;
   }
+}
+
+std::string Serial::SerialImpl::utf8_from_wchar(const std::wstring& wstr) {
+    if (wstr.empty()) return "";
+
+    int size_needed = WideCharToMultiByte(
+        CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+    if (size_needed <= 0) return "";
+
+    std::string result(size_needed - 1, '\0');  // exclude null terminator
+    WideCharToMultiByte(
+        CP_UTF8, 0, wstr.c_str(), -1, &result[0], size_needed, nullptr, nullptr);
+
+    return result;
 }
 
 void
