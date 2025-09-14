@@ -131,38 +131,14 @@ Serial::SerialImpl::open ()
   /*
     In case port ha been changed and needs to be reopened with different parameters
     i have no knowledge if this can happen but if not than it will not matter closing and reopening
+
+    14/09/2025
+	closing and reopening an already open port is counterproductive
+	due to issues maintaing stability of the connection with another device 
+	the port will not be closed if already open it will just reconfigure it
   */
   else {
-      this->close();
-      // See: https://github.com/wjwwood/serial/issues/84
-      wstring port_with_prefix = _prefix_port_if_needed(port_);
-      LPCWSTR lp_port = port_with_prefix.c_str();
-      fd_ = CreateFileW(lp_port,
-          GENERIC_READ | GENERIC_WRITE,
-          0,
-          0,
-          OPEN_EXISTING,
-          FILE_ATTRIBUTE_NORMAL,
-          0);
-
-      if (fd_ == INVALID_HANDLE_VALUE) {
-          DWORD create_file_err = GetLastError();
-          stringstream ss;
-          switch (create_file_err) {
-          case ERROR_FILE_NOT_FOUND:
-              // Use this->getPort to convert to a std::string
-              //MODIFICATION FROM ORIGINAL
-                //since getPort() was changed to wstring now it must be transformed to c.str()
-              ss << "Specified port, " << utf8_from_wchar(this->getPort().c_str()) << ", does not exist.";
-              THROW(IOException, ss.str().c_str());
-          default:
-              ss << "Unknown error opening the serial port: " << create_file_err;
-              THROW(IOException, ss.str().c_str());
-          }
-      }
-
       reconfigurePort();
-      is_open_ = true;
   }
 }
 
