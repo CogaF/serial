@@ -32,3 +32,11 @@ doc/html
 ipch
 Debug
 Release
+
+# Visual Studio build output (visual_studio/visual_studio.sln, build_all.bat)
+Builds/
+Builds_StaticCRT/
+visual_studio/obj/
+visual_studio/*/x64/
+visual_studio/*/Win32/
+.vs/

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- DLL: Builds\<x64|x86>\<Debug|Release>\dll\serial.dll + serial.lib (import library) + serial.pdb. Programs using it define SERIAL_USE_DLL. -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{E1CFAC0E-0D2A-598A-A79F-271A41683930}</ProjectGuid>
+    <RootNamespace>serial_dll</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <!-- MultiByte, as the original project: list_ports_win.cc uses TCHAR APIs. -->
+    <CharacterSet>MultiByte</CharacterSet>
+    <!-- No /GL: a whole-program-optimized library only links with the very same compiler version. -->
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <!-- MultiByte, as the original project: list_ports_win.cc uses TCHAR APIs. -->
+    <CharacterSet>MultiByte</CharacterSet>
+    <!-- No /GL: a whole-program-optimized library only links with the very same compiler version. -->
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <!-- MultiByte, as the original project: list_ports_win.cc uses TCHAR APIs. -->
+    <CharacterSet>MultiByte</CharacterSet>
+    <!-- No /GL: a whole-program-optimized library only links with the very same compiler version. -->
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <!-- MultiByte, as the original project: list_ports_win.cc uses TCHAR APIs. -->
+    <CharacterSet>MultiByte</CharacterSet>
+    <!-- No /GL: a whole-program-optimized library only links with the very same compiler version. -->
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="serial.props" />
+  </ImportGroup>
+  <PropertyGroup>
+    <TargetName>serial</TargetName>
+    <OutDir>$(BuildRootDir)$(PlatformShortName)\$(Configuration)\dll\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!-- Exports serial::Serial and serial::list_ports (SERIAL_API in serial.h). -->
+      <PreprocessorDefinitions>SERIAL_BUILDING_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)serial.pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)serial.lib</ImportLibrary>
+      <AdditionalDependencies>setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\serial.cc" />
+    <ClCompile Include="..\src\impl\win.cc" />
+    <ClCompile Include="..\src\impl\list_ports\list_ports_win.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\serial\serial.h" />
+    <ClInclude Include="..\include\serial\v8stdint.h" />
+    <ClInclude Include="..\include\serial\impl\win.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

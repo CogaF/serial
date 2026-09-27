@@ -1,6 +1,29 @@
 This fork is intended to keep track of my personal needed modifications which consist in:
 - method getPort(), made it to return wstring instead of string. This to avoid warning in building the library
 - method open(), made it to not throw exception and if port is already open, close and reopen the port. This because, for my purpose, it is not useful to have and exception thrown.
+- Visual Studio build of the library as a **static library and a DLL**, Debug and Release, x64 and x86 (see below).
+
+## Building with Visual Studio (Windows)
+
+Run **`build_all.bat`** (finds Visual Studio 2022 or later by itself), or open
+**`visual_studio\visual_studio.sln`**, pick *Debug/Release* and *x64/x86* and **Build Solution** - each
+build makes both the static library and the DLL, and runs a smoke test against each (no serial
+hardware needed; a broken library fails the build).
+
+```
+Builds\
+  include\serial\serial.h, v8stdint.h
+  x64\Debug\lib\serial.lib                       static library (debug info inside)
+  x64\Debug\dll\serial.dll, serial.lib, .pdb      DLL, its import library, symbols
+  x64\Release\...   x86\Debug\...   x86\Release\...
+```
+
+Using it: add `Builds\include` to the include directories and link `serial.lib` from the `lib` or the
+`dll` folder of your platform and configuration. **With the DLL, define `SERIAL_USE_DLL`** in your
+project and copy `serial.dll` next to your exe. The libraries use the DLL C runtime (`/MD`, `/MDd`,
+the Visual Studio default); `build_all.bat static-crt` builds `/MT` versions into `Builds_StaticCRT\`.
+No whole-program optimization (`/GL`) is used, so the libraries link with the same or any later
+Visual Studio. `visual_studio\test_serial` is the original interactive example (not built by default).
 
 I'm keeping it public in case anyone feels this modification is helpful. Below the original readme of the library.
 

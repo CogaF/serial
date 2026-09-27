@@ -45,6 +45,22 @@
 #include <stdexcept>
 #include <serial/v8stdint.h>
 
+/*
+ * SERIAL_API - how the library's functions are linked (Windows only; empty elsewhere):
+ *  - static library (serial.lib from the "lib" folder): define nothing;
+ *  - DLL (serial.dll + its serial.lib from the "dll" folder): define SERIAL_USE_DLL in the program;
+ *  - building the DLL itself: SERIAL_BUILDING_DLL (set by visual_studio/serial_dll.vcxproj).
+ */
+#ifndef SERIAL_API
+#  if defined(_WIN32) && defined(SERIAL_BUILDING_DLL)
+#    define SERIAL_API __declspec(dllexport)
+#  elif defined(_WIN32) && defined(SERIAL_USE_DLL)
+#    define SERIAL_API __declspec(dllimport)
+#  else
+#    define SERIAL_API
+#  endif
+#endif
+
 #define THROW(exceptionClass, message) throw exceptionClass(__FILE__, \
 __LINE__, (message) )
 
@@ -144,7 +160,7 @@ struct Timeout {
 /*!
  * Class that provides a portable serial port interface.
  */
-class Serial {
+class SERIAL_API Serial {
 public:
   /*!
    * Creates a Serial object and opens the port if a port is specified,
@@ -775,7 +791,7 @@ struct PortInfo {
  *
  * \return vector of serial::PortInfo.
  */
-std::vector<PortInfo>
+SERIAL_API std::vector<PortInfo>
 list_ports();
 
 } // namespace serial
