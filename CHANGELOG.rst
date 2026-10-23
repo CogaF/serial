@@ -10,6 +10,8 @@ CogaF fork (2026-10-23)
   errors and received breaks (``ClearCommError`` on Windows, ``ioctl(TIOCGICOUNT)`` on Linux), as
   SerialPortManager uses it. Do not close the handle. No other change: existing code builds and
   behaves as before (the DLL exports the new method with the class).
+* Fixed: Linux / macOS build - ``Serial::getPort()`` returns ``std::wstring`` (a change of this fork
+  for Windows) but the Unix implementation keeps a ``std::string``: it is now widened there.
 * Visual Studio: static library and DLL configurations for x64 and x86; Release built without
   whole-program optimization (``/GL``), so the libraries link with any compiler version.
 

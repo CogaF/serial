@@ -303,7 +303,13 @@ Serial::setPort (const string &port)
 std::wstring
 Serial::getPort () const
 {
+#if defined(_WIN32)
   return pimpl_->getPort ();
+#else
+  // The Unix implementation keeps the name as bytes (/dev/ttyUSB0): widened byte by byte.
+  const std::string port = pimpl_->getPort ();
+  return std::wstring (port.begin (), port.end ());
+#endif
 }
 
 void
