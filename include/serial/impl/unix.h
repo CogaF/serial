@@ -83,6 +83,9 @@ public:
   bool
   isOpen () const;
 
+  int
+  getNativeHandle () const { return fd_; }
+
   size_t
   available ();
 
