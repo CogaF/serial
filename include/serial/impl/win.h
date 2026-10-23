@@ -77,6 +77,9 @@ public:
   bool
   isOpen () const;
 
+  HANDLE
+  getNativeHandle () const { return fd_; }
+
   size_t
   available ();
   

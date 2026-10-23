@@ -232,6 +232,18 @@ public:
   bool
   isOpen () const;
 
+#if defined(_WIN32)
+  typedef void* NativeHandle; /*!< the port's HANDLE */
+#else
+  typedef int NativeHandle;   /*!< the port's file descriptor */
+#endif
+  /*! Gets the operating system handle of the port (INVALID_HANDLE_VALUE / -1 while closed), for
+   * what the library does not offer (e.g. ClearCommError, TIOCGICOUNT: line errors, received breaks).
+   * Do not close it.
+   */
+  NativeHandle
+  getNativeHandle () const;
+
   /*! Closes the serial port. */
   void
   close ();

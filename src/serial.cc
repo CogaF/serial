@@ -95,6 +95,12 @@ Serial::isOpen () const
   return pimpl_->isOpen ();
 }
 
+Serial::NativeHandle
+Serial::getNativeHandle () const
+{
+  return pimpl_->getNativeHandle ();
+}
+
 size_t
 Serial::available ()
 {

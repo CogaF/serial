@@ -2,6 +2,17 @@
 Changelog for package serial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+CogaF fork (2026-10-23)
+-----------------------
+* Added ``Serial::getNativeHandle()``: the operating system handle of the open port - the ``HANDLE``
+  on Windows (``Serial::NativeHandle`` is ``void*``), the file descriptor elsewhere (``int``);
+  ``INVALID_HANDLE_VALUE`` / ``-1`` while closed. For what the library does not offer, e.g. line
+  errors and received breaks (``ClearCommError`` on Windows, ``ioctl(TIOCGICOUNT)`` on Linux), as
+  SerialPortManager uses it. Do not close the handle. No other change: existing code builds and
+  behaves as before (the DLL exports the new method with the class).
+* Visual Studio: static library and DLL configurations for x64 and x86; Release built without
+  whole-program optimization (``/GL``), so the libraries link with any compiler version.
+
 1.2.1 (2015-04-21)
 ------------------
 * Removed the use of a C++11 feature for compatibility with older browsers.
