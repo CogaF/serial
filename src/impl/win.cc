@@ -773,6 +773,37 @@ Serial::SerialImpl::writeUnlock()
   }
 }
 
+bool
+Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
+{
+  if (!is_open_) {
+    throw PortNotOpenedException ("Serial::waitForModemChange");
+  }
+  // Poll GetCommModemStatus against the caller's budget. WaitCommEvent
+  // would require the handle to be opened for overlapped I/O, which the
+  // rest of the implementation does not require. (polling fallback)
+  DWORD previous = 0;
+  if (!GetCommModemStatus (fd_, &previous)) {
+    return false;
+  }
+  DWORD waited = 0;
+  const DWORD step = 5;
+  while (true) {
+    DWORD current = 0;
+    if (!GetCommModemStatus (fd_, &current)) {
+      return false;
+    }
+    const DWORD mask = MS_CTS_ON | MS_DSR_ON | MS_RING_ON | MS_RLSD_ON;
+    if ((previous & mask) != (current & mask)) {
+      return true;
+    }
+    if (waited >= timeout_ms) return false;
+    DWORD slice = step < (timeout_ms - waited) ? step : (timeout_ms - waited);
+    Sleep (slice);
+    waited += slice;
+  }
+}
+
 uint32_t
 Serial::SerialImpl::getLineErrors ()
 {

@@ -1125,6 +1125,34 @@ Serial::SerialImpl::getCD ()
   }
 }
 
+bool
+Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
+{
+  if (!is_open_) {
+    throw PortNotOpenedException ("Serial::waitForModemChange");
+  }
+  // Polling fallback: TIOCMIWAIT is a blocking ioctl without a direct
+  // timeout. Here the modem status is sampled periodically against the
+  // caller's budget. (polling fallback)
+  int previous = 0;
+  if (-1 == ioctl (fd_, TIOCMGET, &previous)) {
+    return false;
+  }
+  MillisecondTimer timer (timeout_ms);
+  while (timer.remaining () > 0) {
+    int current = 0;
+    if (-1 == ioctl (fd_, TIOCMGET, &current)) {
+      return false;
+    }
+    const int mask = TIOCM_CTS | TIOCM_DSR | TIOCM_RI | TIOCM_CD;
+    if ((previous & mask) != (current & mask)) {
+      return true;
+    }
+    usleep (2000);
+  }
+  return false;
+}
+
 uint32_t
 Serial::SerialImpl::getLineErrors ()
 {

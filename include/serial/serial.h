@@ -672,6 +672,15 @@ public:
   uint32_t
   getLineErrors ();
 
+  /*! Wait for a change on any of CTS/DSR/RI/CD, bounded by timeout_ms.
+   *
+   * Returns true if a change was observed, false on timeout. On Linux
+   * this uses TIOCMIWAIT with a cancellation deadline enforced via a
+   * modem-status poll; on Windows it uses WaitCommEvent on the modem
+   * event mask. macOS uses a short polling loop. */
+  bool
+  waitForModemChange (uint32_t timeout_ms);
+
   /*! Enable or disable low-latency mode on the underlying driver.
    *
    * Linux: toggles ASYNC_LOW_LATENCY via TIOCGSERIAL/TIOCSSERIAL. Windows:
