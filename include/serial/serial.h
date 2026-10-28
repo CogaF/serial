@@ -655,6 +655,14 @@ public:
   bool
   getCD ();
 
+  /*! Enable or disable low-latency mode on the underlying driver.
+   *
+   * Linux: toggles ASYNC_LOW_LATENCY via TIOCGSERIAL/TIOCSSERIAL. Windows:
+   * attempts to lower FTDI LatencyTimer in the registry when possible;
+   * silent no-op if the key is not writable. macOS: no-op. */
+  void
+  setLowLatency (bool enabled);
+
   /*! Request exclusive access to the port.
    *
    * Linux: TIOCEXCL / TIOCNXCL. Windows: ports are already opened for

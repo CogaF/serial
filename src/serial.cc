@@ -444,3 +444,8 @@ void Serial::setExclusive (bool enabled)
 {
   pimpl_->setExclusive (enabled);
 }
+
+void Serial::setLowLatency (bool enabled)
+{
+  pimpl_->setLowLatency (enabled);
+}

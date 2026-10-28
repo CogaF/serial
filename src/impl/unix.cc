@@ -1119,6 +1119,27 @@ Serial::SerialImpl::getCD ()
 }
 
 void
+Serial::SerialImpl::setLowLatency (bool enabled)
+{
+  low_latency_ = enabled;
+#if defined(__linux__) && defined(TIOCGSERIAL) && defined(TIOCSSERIAL) && defined(ASYNC_LOW_LATENCY)
+  if (!is_open_) return;
+  struct serial_struct ser;
+  if (-1 == ioctl (fd_, TIOCGSERIAL, &ser)) {
+    // Not every tty driver supports TIOCGSERIAL (pty, usbserial subsets).
+    // Treat as a soft no-op rather than throwing.
+    return;
+  }
+  if (enabled)  ser.flags |=  ASYNC_LOW_LATENCY;
+  else          ser.flags &= ~ASYNC_LOW_LATENCY;
+  // Ignore failure for the same reason as above.
+  (void)ioctl (fd_, TIOCSSERIAL, &ser);
+#else
+  // Not supported on this platform.
+#endif
+}
+
+void
 Serial::SerialImpl::setExclusive (bool enabled)
 {
   exclusive_ = enabled;

@@ -774,6 +774,15 @@ Serial::SerialImpl::writeUnlock()
 }
 
 void
+Serial::SerialImpl::setLowLatency (bool /*enabled*/)
+{
+  // Windows: FTDI's LatencyTimer lives in the registry under HKLM.
+  // Writing it requires elevation and can be refused silently. This hook
+  // is intentionally a no-op by default; applications that need it can
+  // ship their own registry update.
+}
+
+void
 Serial::SerialImpl::setExclusive (bool /*enabled*/)
 {
   // Windows opens serial ports with no sharing flags (see CreateFileW
