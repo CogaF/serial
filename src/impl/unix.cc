@@ -26,6 +26,9 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <time.h>
+#if defined(__linux__)
+# include <sys/eventfd.h>
+#endif
 #ifdef __MACH__
 #include <AvailabilityMacros.h>
 #include <mach/clock.h>
@@ -159,6 +162,28 @@ Serial::SerialImpl::open ()
 
   reconfigurePort();
   is_open_ = true;
+
+  // Set up a wake-up descriptor pair used by cancelRead to break the
+  // reader out of its pselect() wait. On Linux we prefer an eventfd;
+  // elsewhere a pipe pair is used.
+  if (wakeup_read_fd_ == -1) {
+#if defined(__linux__)
+    int efd = ::eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (efd != -1) {
+      wakeup_read_fd_ = efd;
+      wakeup_write_fd_ = efd;
+    } else
+#endif
+    {
+      int pipefd[2];
+      if (::pipe (pipefd) == 0) {
+        wakeup_read_fd_ = pipefd[0];
+        wakeup_write_fd_ = pipefd[1];
+        ::fcntl (wakeup_read_fd_, F_SETFL, O_NONBLOCK);
+        ::fcntl (wakeup_write_fd_, F_SETFL, O_NONBLOCK);
+      }
+    }
+  }
 }
 
 void
@@ -479,6 +504,15 @@ Serial::SerialImpl::close ()
     }
     is_open_ = false;
   }
+  // Release the wake-up descriptor pair.
+  if (wakeup_read_fd_ != -1) {
+    if (wakeup_write_fd_ != -1 && wakeup_write_fd_ != wakeup_read_fd_) {
+      ::close (wakeup_write_fd_);
+    }
+    ::close (wakeup_read_fd_);
+    wakeup_read_fd_ = -1;
+    wakeup_write_fd_ = -1;
+  }
 }
 
 bool
@@ -504,12 +538,18 @@ Serial::SerialImpl::available ()
 bool
 Serial::SerialImpl::waitReadable (uint32_t timeout)
 {
-  // Setup a select call to block for serial data or a timeout
+  // Setup a select call to block for serial data, a wake-up event
+  // (cancelRead) or a timeout.
   fd_set readfds;
   FD_ZERO (&readfds);
   FD_SET (fd_, &readfds);
+  int nfds = fd_;
+  if (wakeup_read_fd_ != -1) {
+    FD_SET (wakeup_read_fd_, &readfds);
+    if (wakeup_read_fd_ > nfds) nfds = wakeup_read_fd_;
+  }
   timespec timeout_ts (timespec_from_ms (timeout));
-  int r = pselect (fd_ + 1, &readfds, NULL, NULL, &timeout_ts, NULL);
+  int r = pselect (nfds + 1, &readfds, NULL, NULL, &timeout_ts, NULL);
 
   if (r < 0) {
     // Select was interrupted
@@ -523,10 +563,18 @@ Serial::SerialImpl::waitReadable (uint32_t timeout)
   if (r == 0) {
     return false;
   }
+  // Wake-up fired: drain it and report "not readable" so the read loop
+  // propagates the cancel as a zero-byte return.
+  if (wakeup_read_fd_ != -1 && FD_ISSET (wakeup_read_fd_, &readfds)) {
+    uint8_t drain[64];
+    while (::read (wakeup_read_fd_, drain, sizeof(drain)) > 0) {}
+    if (!FD_ISSET (fd_, &readfds)) {
+      return false;
+    }
+  }
   // This shouldn't happen, if r > 0 our fd has to be in the list!
   if (!FD_ISSET (fd_, &readfds)) {
-    THROW (IOException, "select reports ready to read, but our fd isn't"
-           " in the list, this shouldn't happen!");
+    return false;
   }
   // Data available to read.
   return true;
