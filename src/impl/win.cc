@@ -427,9 +427,23 @@ Serial::SerialImpl::waitReadable (uint32_t timeout)
 }
 
 void
-Serial::SerialImpl::waitByteTimes (size_t /*count*/)
+Serial::SerialImpl::waitByteTimes (size_t count)
 {
-  THROW (IOException, "waitByteTimes is not implemented on Windows.");
+  if (baudrate_ == 0) {
+    return;
+  }
+  // Approximate transmission time per byte in milliseconds for the current
+  // framing (start bit + data bits + parity bit if any + stop bit(s)).
+  double bits_per_byte = 1.0 + static_cast<double>(bytesize_) + 1.0;
+  if (parity_ != parity_none)                 bits_per_byte += 1.0;
+  if (stopbits_ == stopbits_two)              bits_per_byte += 1.0;
+  else if (stopbits_ == stopbits_one_point_five) bits_per_byte += 0.5;
+
+  double ms = (bits_per_byte / static_cast<double>(baudrate_)) * 1000.0 *
+              static_cast<double>(count);
+  DWORD sleep_ms = static_cast<DWORD>(ms);
+  if (sleep_ms == 0 && count > 0) sleep_ms = 1;
+  Sleep (sleep_ms);
 }
 
 size_t
@@ -592,9 +606,18 @@ Serial::SerialImpl::flushOutput ()
 }
 
 void
-Serial::SerialImpl::sendBreak (int /*duration*/)
+Serial::SerialImpl::sendBreak (int duration)
 {
-  THROW (IOException, "sendBreak is not supported on Windows.");
+  if (is_open_ == false) {
+    throw PortNotOpenedException ("Serial::sendBreak");
+  }
+  if (!SetCommBreak (fd_)) {
+    THROW (IOException, "Error setting break condition.");
+  }
+  Sleep (duration > 0 ? static_cast<DWORD>(duration) : 0);
+  if (!ClearCommBreak (fd_)) {
+    THROW (IOException, "Error clearing break condition.");
+  }
 }
 
 void
