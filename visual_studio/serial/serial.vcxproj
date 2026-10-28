@@ -177,6 +177,7 @@ xcopy /Y /D "$(SolutionDir)..\include\serial\impl\*.h" "$(SolutionDir)..\serial_
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>SERIAL_BUILD_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <DisableSpecificWarnings>4251;4275;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -198,6 +199,7 @@ xcopy /Y /D "$(SolutionDir)..\include\serial\impl\*.h" "$(SolutionDir)..\serial_
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>SERIAL_BUILD_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <DisableSpecificWarnings>4251;4275;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -215,6 +217,7 @@ xcopy /Y /D "$(SolutionDir)..\include\serial\impl\*.h" "$(SolutionDir)..\serial_
   <ItemGroup>
     <ClCompile Include="..\..\src\impl\list_ports\list_ports_win.cc" />
     <ClCompile Include="..\..\src\impl\win.cc" />
+    <ClCompile Include="..\..\src\impl\hotplug.cc" />
     <ClCompile Include="..\..\src\impl\hotplug_win.cc" />
     <ClCompile Include="..\..\src\serial.cc" />
   </ItemGroup>

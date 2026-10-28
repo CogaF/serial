@@ -133,6 +133,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # Consumers must define SERIAL_USE_DLL when linking against the DLL.
 if(WIN32 AND BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE SERIAL_BUILD_DLL)
+    if(MSVC)
+        # C4251/C4275: STL types in dll-exported classes. Benign when the
+        # DLL and its consumers are built with the same compiler/runtime,
+        # which is the case for the configurations we ship.
+        target_compile_options(${PROJECT_NAME} PRIVATE /wd4251 /wd4275)
+    endif()
 endif()
 if(SERIAL_HAVE_LIBUDEV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE SERIAL_HAVE_LIBUDEV)
