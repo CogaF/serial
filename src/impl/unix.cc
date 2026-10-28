@@ -1125,6 +1125,37 @@ Serial::SerialImpl::getCD ()
   }
 }
 
+void
+Serial::SerialImpl::setRS485Mode (bool enabled,
+                                  uint32_t rts_delay_before_send_us,
+                                  uint32_t rts_delay_after_send_us)
+{
+  rs485_enabled_ = enabled;
+  rs485_delay_before_us_ = rts_delay_before_send_us;
+  rs485_delay_after_us_ = rts_delay_after_send_us;
+#if defined(__linux__) && defined(TIOCSRS485)
+  if (!is_open_) return;
+  struct serial_rs485 rs485;
+  memset (&rs485, 0, sizeof(rs485));
+  if (enabled) {
+    rs485.flags |= SER_RS485_ENABLED | SER_RS485_RTS_ON_SEND;
+    rs485.delay_rts_before_send = rts_delay_before_send_us / 1000u;
+    rs485.delay_rts_after_send  = rts_delay_after_send_us  / 1000u;
+  }
+  // Not every driver supports TIOCSRS485: treat as soft no-op.
+  (void)ioctl (fd_, TIOCSRS485, &rs485);
+#else
+  (void)rts_delay_before_send_us;
+  (void)rts_delay_after_send_us;
+#endif
+}
+
+bool
+Serial::SerialImpl::getRS485Mode () const
+{
+  return rs485_enabled_;
+}
+
 bool
 Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
 {

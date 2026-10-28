@@ -681,6 +681,21 @@ public:
   bool
   waitForModemChange (uint32_t timeout_ms);
 
+  /*! Enable RS-485 half-duplex RTS toggling.
+   *
+   * Linux: TIOCSRS485 with SER_RS485_ENABLED and SER_RS485_RTS_ON_SEND
+   * plus the supplied before/after send delays (microseconds).
+   * Windows: switches DCB.fRtsControl to RTS_CONTROL_TOGGLE on next
+   * reconfigure. macOS: no-op. */
+  void
+  setRS485Mode (bool enabled,
+                uint32_t rts_delay_before_send_us = 0,
+                uint32_t rts_delay_after_send_us = 0);
+
+  /*! Reports whether RS-485 mode is currently enabled. */
+  bool
+  getRS485Mode () const;
+
   /*! Enable or disable low-latency mode on the underlying driver.
    *
    * Linux: toggles ASYNC_LOW_LATENCY via TIOCGSERIAL/TIOCSSERIAL. Windows:

@@ -773,6 +773,26 @@ Serial::SerialImpl::writeUnlock()
   }
 }
 
+void
+Serial::SerialImpl::setRS485Mode (bool enabled,
+                                  uint32_t /*rts_delay_before_send_us*/,
+                                  uint32_t /*rts_delay_after_send_us*/)
+{
+  rs485_enabled_ = enabled;
+  if (!is_open_) return;
+  DCB dcb = {0};
+  dcb.DCBlength = sizeof(dcb);
+  if (!GetCommState (fd_, &dcb)) return;
+  dcb.fRtsControl = enabled ? RTS_CONTROL_TOGGLE : RTS_CONTROL_DISABLE;
+  SetCommState (fd_, &dcb);
+}
+
+bool
+Serial::SerialImpl::getRS485Mode () const
+{
+  return rs485_enabled_;
+}
+
 bool
 Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
 {

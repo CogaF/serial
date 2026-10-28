@@ -459,3 +459,16 @@ bool Serial::waitForModemChange (uint32_t timeout_ms)
 {
   return pimpl_->waitForModemChange (timeout_ms);
 }
+
+void Serial::setRS485Mode (bool enabled,
+                           uint32_t rts_delay_before_send_us,
+                           uint32_t rts_delay_after_send_us)
+{
+  pimpl_->setRS485Mode (enabled, rts_delay_before_send_us,
+                        rts_delay_after_send_us);
+}
+
+bool Serial::getRS485Mode () const
+{
+  return pimpl_->getRS485Mode ();
+}
