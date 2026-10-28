@@ -41,7 +41,7 @@
 
 #include "serial/serial.h"
 
-#include "windows.h"
+#include "serial/impl/win_compat.h"
 
 namespace serial {
 
