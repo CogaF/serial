@@ -844,6 +844,27 @@ struct PortInfo {
   /*! Hardware ID (e.g. VID:PID of USB serial devices) or "n/a" if not available. */
   std::string hardware_id;
 
+  /*! USB vendor ID as 4-digit lowercase hex (e.g. "0403"), or empty. */
+  std::string vid;
+
+  /*! USB product ID as 4-digit lowercase hex (e.g. "6001"), or empty. */
+  std::string pid;
+
+  /*! Device serial number string, or empty. */
+  std::string serial_number;
+
+  /*! Manufacturer string reported by the device, or empty. */
+  std::string manufacturer;
+
+  /*! Product string reported by the device, or empty. */
+  std::string product;
+
+  /*! Platform-specific USB location string, or empty. */
+  std::string location;
+
+  /*! Driver / service name backing the port if determinable, or empty. */
+  std::string driver;
+
 };
 
 /* Lists the serial ports available on the system

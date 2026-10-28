@@ -294,6 +294,41 @@ usb_sysfs_hw_string(const string& sysfs_path)
     return format("USB VID:PID=%s:%s %s", vid.c_str(), pid.c_str(), serial_number.c_str() );
 }
 
+static void
+enrich_port_from_sysfs (PortInfo& info)
+{
+    // Pull vid/pid/serial/manufacturer/product/driver from the sysfs
+    // entry backing the tty. This mirrors what libudev would surface in
+    // ID_VENDOR_ID / ID_MODEL_ID / ID_SERIAL_SHORT / ID_VENDOR / ID_MODEL
+    // / ID_PATH; a dedicated libudev path can replace this when
+    // SERIAL_HAVE_LIBUDEV is defined.
+    string device_name = basename (info.port);
+    string sys_device_path = format ("/sys/class/tty/%s/device", device_name.c_str());
+    string real_dev = realpath (sys_device_path);
+    if (real_dev.empty ()) return;
+
+    // Driver name is the final component of /sys/.../device/driver.
+    string driver_link = realpath (sys_device_path + "/driver");
+    if (!driver_link.empty ()) {
+        info.driver = basename (driver_link);
+    }
+
+    // Walk up looking for a USB device directory holding idVendor.
+    string path = real_dev;
+    for (int i = 0; i < 6 && !path.empty () && path != "/"; ++i) {
+        if (path_exists (path + "/idVendor")) {
+            info.vid           = read_line (path + "/idVendor");
+            info.pid           = read_line (path + "/idProduct");
+            info.serial_number = read_line (path + "/serial");
+            info.manufacturer  = read_line (path + "/manufacturer");
+            info.product       = read_line (path + "/product");
+            info.location      = path;
+            break;
+        }
+        path = dirname (path);
+    }
+}
+
 vector<PortInfo>
 serial::list_ports()
 {
@@ -325,6 +360,7 @@ serial::list_ports()
         device_entry.port = device;
         device_entry.description = friendly_name;
         device_entry.hardware_id = hardware_id;
+        enrich_port_from_sysfs (device_entry);
 
         results.push_back( device_entry );
 

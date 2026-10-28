@@ -260,17 +260,30 @@ serial::list_ports(void)
         uint16_t vendor_id = get_int_property( parent, "idVendor" );
         uint16_t product_id = get_int_property( parent, "idProduct" );
 
+        // Populate the enriched PortInfo fields regardless of whether we
+        // can build the legacy "USB VID:PID=... SNR=..." string.
+        port_info.manufacturer  = vendor_name;
+        port_info.product       = device_name;
+        port_info.serial_number = serial_number;
+        port_info.location      = rtrim (get_string_property (parent, "USB Device Path Name"));
+
         if( vendor_id && product_id )
         {
+            char vid_buf[8];
+            char pid_buf[8];
+            snprintf (vid_buf, sizeof(vid_buf), "%04x", vendor_id);
+            snprintf (pid_buf, sizeof(pid_buf), "%04x", product_id);
+            port_info.vid = vid_buf;
+            port_info.pid = pid_buf;
+
             char cstring[HARDWARE_ID_STRING_LENGTH];
 
-            if(serial_number.empty())
-                serial_number = "None";
+            string snr_for_legacy = serial_number.empty() ? string("None") : serial_number;
 
             int ret = snprintf( cstring, HARDWARE_ID_STRING_LENGTH, "USB VID:PID=%04x:%04x SNR=%s",
                 vendor_id,
                 product_id,
-                serial_number.c_str() );
+                snr_for_legacy.c_str() );
 
             if( (ret >= 0) && (ret < HARDWARE_ID_STRING_LENGTH) )
                 port_info.hardware_id = cstring;

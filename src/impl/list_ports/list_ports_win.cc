@@ -8,12 +8,13 @@
  */
 
 #include "serial/serial.h"
+#include "serial/impl/win_compat.h"
 #include <tchar.h>
-#include <windows.h>
 #include <setupapi.h>
 #include <initguid.h>
 #include <devguid.h>
 #include <cstring>
+#include <cctype>
 
 using serial::PortInfo;
 using std::vector;
@@ -140,6 +141,60 @@ serial::list_ports()
 		port_entry.port = portName;
 		port_entry.description = friendlyName;
 		port_entry.hardware_id = hardwareId;
+
+		// Parse VID / PID out of the hardware id (format
+		// "USB\\VID_xxxx&PID_yyyy...").
+		{
+			size_t vp = hardwareId.find("VID_");
+			if (vp != std::string::npos && hardwareId.size() >= vp + 8) {
+				port_entry.vid = hardwareId.substr(vp + 4, 4);
+				for (auto& c : port_entry.vid) c = (char)std::tolower((unsigned char)c);
+			}
+			size_t pp = hardwareId.find("PID_");
+			if (pp != std::string::npos && hardwareId.size() >= pp + 8) {
+				port_entry.pid = hardwareId.substr(pp + 4, 4);
+				for (auto& c : port_entry.pid) c = (char)std::tolower((unsigned char)c);
+			}
+		}
+
+		// Serial number sits at the tail of the device instance id after
+		// the last backslash: "USB\\VID_xxxx&PID_yyyy\\<serial>".
+		{
+			TCHAR instance_id[256];
+			DWORD inst_len = 0;
+			if (SetupDiGetDeviceInstanceId(device_info_set, &device_info_data,
+				instance_id, 256, &inst_len))
+			{
+#ifdef UNICODE
+				std::string iid = utf8_encode(instance_id);
+#else
+				std::string iid = instance_id;
+#endif
+				size_t last = iid.find_last_of('\\');
+				if (last != std::string::npos && last + 1 < iid.size()) {
+					port_entry.serial_number = iid.substr(last + 1);
+				}
+			}
+		}
+
+		// Manufacturer, location and driver service name.
+		auto fetch_prop = [&](DWORD prop) -> std::string {
+			TCHAR buf[256];
+			DWORD len = 0;
+			if (!SetupDiGetDeviceRegistryProperty(device_info_set, &device_info_data,
+				prop, NULL, (PBYTE)buf, sizeof(buf), &len))
+				return std::string();
+			if (len == 0) return std::string();
+#ifdef UNICODE
+			return utf8_encode(buf);
+#else
+			return std::string(buf);
+#endif
+		};
+		port_entry.manufacturer = fetch_prop(SPDRP_MFG);
+		port_entry.location     = fetch_prop(SPDRP_LOCATION_INFORMATION);
+		port_entry.driver       = fetch_prop(SPDRP_SERVICE);
+		port_entry.product      = fetch_prop(SPDRP_DEVICEDESC);
 
 		devices_found.push_back(port_entry);
 	}
