@@ -773,6 +773,26 @@ Serial::SerialImpl::writeUnlock()
   }
 }
 
+uint32_t
+Serial::SerialImpl::getLineErrors ()
+{
+  // Fold in whatever error bits ClearCommError can read now.
+  if (is_open_) {
+    DWORD errs = 0;
+    COMSTAT cs = {0};
+    if (ClearCommError (fd_, &errs, &cs)) {
+      if (errs & CE_FRAME)    line_errors_ |= serial::line_error_frame;
+      if (errs & CE_RXPARITY) line_errors_ |= serial::line_error_parity;
+      if (errs & CE_OVERRUN)  line_errors_ |= serial::line_error_overrun;
+      if (errs & CE_BREAK)    line_errors_ |= serial::line_error_break;
+      if (errs & CE_RXOVER)   line_errors_ |= serial::line_error_buffer_overflow;
+    }
+  }
+  uint32_t out = line_errors_;
+  line_errors_ = 0;
+  return out;
+}
+
 void
 Serial::SerialImpl::setLowLatency (bool /*enabled*/)
 {

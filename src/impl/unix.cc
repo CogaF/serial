@@ -654,6 +654,13 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
       //  Then returning so that select can block again.
       ssize_t bytes_read_now =
         ::read (fd_, buf + bytes_read, size - bytes_read);
+      if (bytes_read_now < 0 && errno == EIO) {
+        // Treat EIO as a transient framing-level error. Simple
+        // accumulator: more precise classification (parity vs frame)
+        // would require PARMRK + INPCK; see docs.
+        line_errors_ |= serial::line_error_frame;
+        continue;
+      }
       // read should always return some data as select reported it was
       // ready to read when we get to this point.
       if (bytes_read_now < 1) {
@@ -1116,6 +1123,14 @@ Serial::SerialImpl::getCD ()
   {
     return 0 != (status & TIOCM_CD);
   }
+}
+
+uint32_t
+Serial::SerialImpl::getLineErrors ()
+{
+  uint32_t out = line_errors_;
+  line_errors_ = 0;
+  return out;
 }
 
 void

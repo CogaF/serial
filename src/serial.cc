@@ -449,3 +449,8 @@ void Serial::setLowLatency (bool enabled)
 {
   pimpl_->setLowLatency (enabled);
 }
+
+uint32_t Serial::getLineErrors ()
+{
+  return pimpl_->getLineErrors ();
+}

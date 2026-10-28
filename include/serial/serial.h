@@ -51,6 +51,18 @@ __LINE__, (message) )
 namespace serial {
 
 /*!
+ * Bitmask flags returned by Serial::getLineErrors(). Values are
+ * accumulated between calls and cleared on read.
+ */
+enum LineError : uint32_t {
+  line_error_frame           = 1u << 0,
+  line_error_parity          = 1u << 1,
+  line_error_overrun         = 1u << 2,
+  line_error_break           = 1u << 3,
+  line_error_buffer_overflow = 1u << 4
+};
+
+/*!
  * Enumeration defines the possible bytesizes for the serial port.
  */
 typedef enum {
@@ -654,6 +666,11 @@ public:
   /*! Returns the current status of the CD line. */
   bool
   getCD ();
+
+  /*! Returns the accumulated LineError bitmask since the last call and
+   * clears it. See serial::LineError. */
+  uint32_t
+  getLineErrors ();
 
   /*! Enable or disable low-latency mode on the underlying driver.
    *
