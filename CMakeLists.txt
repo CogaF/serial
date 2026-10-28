@@ -26,29 +26,52 @@ set(SERIAL_VERSION_STRING "${PROJECT_VERSION}+${SERIAL_COMMIT_COUNT}")
 
 # -----------------------------------------------------------------------------
 # Published artifact layout: mirror the Visual Studio layout under
-# <source>/serial_lib_structure/<Platform>/<Config>/ so every platform
-# produces the same tree. Headers are copied there as a post-build step.
+#   <source>/serial_lib_structure/<arch>/<Config>/<lib|dll>/
+# so downstream projects (peltier_cntl_tec_8a and others) can resolve
+# serial.lib / serial.dll by the same scheme on every platform.
+#   - <arch> is x86 or x64 (never Win32).
+#   - <Config> is Debug or Release.
+#   - <lib|dll> is lib for a static build, dll for a shared build.
+# Headers are copied under serial_lib_structure/include/serial/ as a
+# post-build step on the target below.
 # -----------------------------------------------------------------------------
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(SERIAL_PLATFORM_TAG "x64")
 else()
-    set(SERIAL_PLATFORM_TAG "Win32")
+    set(SERIAL_PLATFORM_TAG "x86")
+endif()
+if(BUILD_SHARED_LIBS)
+    set(SERIAL_LINK_KIND "dll")
+else()
+    set(SERIAL_LINK_KIND "lib")
 endif()
 set(SERIAL_STRUCTURE_ROOT "${CMAKE_SOURCE_DIR}/serial_lib_structure")
 if(CMAKE_CONFIGURATION_TYPES)
     foreach(_cfg IN LISTS CMAKE_CONFIGURATION_TYPES)
         string(TOUPPER "${_cfg}" _CFG)
-        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
-        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
+        if(_cfg MATCHES "^[Dd]ebug")
+            set(_dep_cfg "Debug")
+        else()
+            set(_dep_cfg "Release")
+        endif()
+        set(_out "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_dep_cfg}/${SERIAL_LINK_KIND}")
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${_CFG} "${_out}")
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${_CFG} "${_out}")
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_CFG} "${_out}")
     endforeach()
 else()
     if(NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE Release)
     endif()
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
+    if(CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug")
+        set(_dep_cfg "Debug")
+    else()
+        set(_dep_cfg "Release")
+    endif()
+    set(_out "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_dep_cfg}/${SERIAL_LINK_KIND}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${_out}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${_out}")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${_out}")
 endif()
 
 # -----------------------------------------------------------------------------
@@ -106,6 +129,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     SERIAL_COMMIT_COUNT=${SERIAL_COMMIT_COUNT}
     SERIAL_VERSION_STRING="${SERIAL_VERSION_STRING}"
 )
+# When built shared on Windows, mark public symbols as exported.
+# Consumers must define SERIAL_USE_DLL when linking against the DLL.
+if(WIN32 AND BUILD_SHARED_LIBS)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE SERIAL_BUILD_DLL)
+endif()
 if(SERIAL_HAVE_LIBUDEV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE SERIAL_HAVE_LIBUDEV)
     target_include_directories(${PROJECT_NAME} PRIVATE ${LIBUDEV_INCLUDE_DIRS})

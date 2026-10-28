@@ -46,6 +46,24 @@
 #include <functional>
 #include <serial/v8stdint.h>
 
+/* Export / import macro.
+ *
+ *   SERIAL_BUILD_DLL : set by the serial project when producing a DLL.
+ *   SERIAL_USE_DLL   : set by consumers that link against the DLL.
+ *   neither set      : static-library build; no decoration.
+ */
+#if defined(_WIN32)
+#  if defined(SERIAL_BUILD_DLL)
+#    define SERIAL_API __declspec(dllexport)
+#  elif defined(SERIAL_USE_DLL)
+#    define SERIAL_API __declspec(dllimport)
+#  else
+#    define SERIAL_API
+#  endif
+#else
+#  define SERIAL_API
+#endif
+
 #define THROW(exceptionClass, message) throw exceptionClass(__FILE__, \
 __LINE__, (message) )
 
@@ -157,7 +175,7 @@ struct Timeout {
 /*!
  * Class that provides a portable serial port interface.
  */
-class Serial {
+class SERIAL_API Serial {
 public:
   /*!
    * Creates a Serial object and opens the port if a port is specified,
@@ -756,7 +774,7 @@ private:
 
 };
 
-class SerialException : public std::exception
+class SERIAL_API SerialException : public std::exception
 {
   // Disable copy constructors
   SerialException& operator=(const SerialException&);
@@ -774,7 +792,7 @@ public:
   }
 };
 
-class IOException : public std::exception
+class SERIAL_API IOException : public std::exception
 {
   // Disable copy constructors
   IOException& operator=(const IOException&);
@@ -813,7 +831,7 @@ public:
   }
 };
 
-class PortNotOpenedException : public std::exception
+class SERIAL_API PortNotOpenedException : public std::exception
 {
   // Disable copy constructors
   const PortNotOpenedException& operator=(PortNotOpenedException);
@@ -875,7 +893,7 @@ struct PortInfo {
  *
  * \return vector of serial::PortInfo.
  */
-std::vector<PortInfo>
+SERIAL_API std::vector<PortInfo>
 list_ports();
 
 /*! Callback signature invoked when a serial port is added or removed.
@@ -886,22 +904,22 @@ using HotplugCallback = std::function<void(const PortInfo&, bool added)>;
  *  or -1 when hotplug monitoring is not available in this build (for
  *  example Linux without libudev). Starts a background monitor thread on
  *  first registration. */
-int registerHotplugCallback (HotplugCallback cb);
+SERIAL_API int registerHotplugCallback (HotplugCallback cb);
 
 /*! Unregister a previously-registered callback. Stops the background
  *  monitor thread when the last callback is removed. */
-void unregisterHotplugCallback (int token);
+SERIAL_API void unregisterHotplugCallback (int token);
 
 /*! Returns a version string in the form "<major>.<minor>.<patch>+<commits>". */
-const char* version ();
+SERIAL_API const char* version ();
 /*! Returns the major component of the library version. */
-uint32_t version_major ();
+SERIAL_API uint32_t version_major ();
 /*! Returns the minor component of the library version. */
-uint32_t version_minor ();
+SERIAL_API uint32_t version_minor ();
 /*! Returns the patch component of the library version. */
-uint32_t version_patch ();
+SERIAL_API uint32_t version_patch ();
 /*! Returns the number of commits reachable from the build HEAD. */
-uint32_t version_commits ();
+SERIAL_API uint32_t version_commits ();
 
 } // namespace serial
 
