@@ -774,6 +774,18 @@ private:
 
 };
 
+/* MSVC emits C4251 (std::string member needs dll-interface) and C4275
+ * (std::exception base is not a dll-interface class) for the exception
+ * classes below whenever the header is seen by MSVC with SERIAL_API set
+ * to a dllexport or dllimport. The warnings are harmless when the DLL
+ * and its consumers share compiler/runtime, which is the case for every
+ * configuration this fork ships. The pragma travels with the header so
+ * consumers do not need to add /wd4251 /wd4275 themselves. */
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable: 4251 4275)
+#endif
+
 class SERIAL_API SerialException : public std::exception
 {
   // Disable copy constructors
@@ -848,6 +860,10 @@ public:
     return e_what_.c_str();
   }
 };
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
 /*!
  * Structure that describes a serial device.
