@@ -21,6 +21,12 @@
 
 #if defined(__linux__)
 # include <linux/serial.h>
+# if __has_include(<asm/termbits.h>)
+#  include <asm/termbits.h>
+#  ifdef BOTHER
+#   define SERIAL_HAVE_TERMIOS2 1
+#  endif
+# endif
 #endif
 
 #include <sys/select.h>
@@ -457,6 +463,20 @@ Serial::SerialImpl::reconfigurePort ()
       THROW (IOException, errno);
     }
     // Linux Support
+#elif defined(SERIAL_HAVE_TERMIOS2)
+    // Prefer termios2 with BOTHER: it supports arbitrary baud rates on
+    // modern kernels without the deprecated ASYNC_SPD_CUST divisor trick.
+    struct termios2 tio2;
+    if (-1 == ioctl (fd_, TCGETS2, &tio2)) {
+      THROW (IOException, errno);
+    }
+    tio2.c_cflag &= ~CBAUD;
+    tio2.c_cflag |= BOTHER;
+    tio2.c_ispeed = baudrate_;
+    tio2.c_ospeed = baudrate_;
+    if (-1 == ioctl (fd_, TCSETS2, &tio2)) {
+      THROW (IOException, errno);
+    }
 #elif defined(__linux__) && defined (TIOCSSERIAL)
     struct serial_struct ser;
 
