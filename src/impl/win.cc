@@ -37,12 +37,16 @@ Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
                                 flowcontrol_t flowcontrol)
   : port_ (port.begin(), port.end()), fd_ (INVALID_HANDLE_VALUE), is_open_ (false),
     baudrate_ (baudrate), parity_ (parity),
-    bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol)
+    bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol),
+    line_errors_ (0),
+    driver_in_buffer_ (65536), driver_out_buffer_ (65536),
+    xon_char_ (0x11), xoff_char_ (0x13),
+    rs485_enabled_ (false)
 {
-  if (port_.empty () == false)
-    open ();
   read_mutex = CreateMutex(NULL, false, NULL);
   write_mutex = CreateMutex(NULL, false, NULL);
+  if (port_.empty () == false)
+    open ();
 }
 
 Serial::SerialImpl::~SerialImpl ()
@@ -381,10 +385,45 @@ Serial::SerialImpl::available ()
 }
 
 bool
-Serial::SerialImpl::waitReadable (uint32_t /*timeout*/)
+Serial::SerialImpl::waitReadable (uint32_t timeout)
 {
-  THROW (IOException, "waitReadable is not implemented on Windows.");
-  return false;
+  if (!is_open_) {
+    throw PortNotOpenedException ("Serial::waitReadable");
+  }
+  // Set the comm event mask up-front so WaitCommEvent reflects the full set
+  // of events the library cares about (RX, modem lines, break and errors).
+  SetCommMask (fd_,
+               EV_RXCHAR | EV_CTS | EV_DSR | EV_RING |
+               EV_RLSD | EV_BREAK | EV_ERR);
+
+  // The device handle in this translation unit is opened in synchronous
+  // mode, so WaitCommEvent is not an overlapped operation here. To honor
+  // the caller's timeout the input queue is polled via ClearCommError in
+  // short slices. ClearCommError's error bits are folded into the
+  // accumulator consumed by getLineErrors(). (polling fallback)
+  DWORD waited = 0;
+  const DWORD step = 5;
+  while (true) {
+    COMSTAT cs = {0};
+    DWORD errs = 0;
+    if (!ClearCommError (fd_, &errs, &cs)) {
+      return false;
+    }
+    if (errs & CE_FRAME)    line_errors_ |= 1u;  // frame
+    if (errs & CE_RXPARITY) line_errors_ |= 2u;  // parity
+    if (errs & CE_OVERRUN)  line_errors_ |= 4u;  // overrun
+    if (errs & CE_BREAK)    line_errors_ |= 8u;  // break
+    if (errs & CE_RXOVER)   line_errors_ |= 16u; // driver buffer overflow
+    if (cs.cbInQue > 0) {
+      return true;
+    }
+    if (waited >= timeout) {
+      return false;
+    }
+    DWORD slice = step < (timeout - waited) ? step : (timeout - waited);
+    Sleep (slice);
+    waited += slice;
+  }
 }
 
 void

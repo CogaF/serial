@@ -86,6 +86,35 @@ public:
   void
   waitByteTimes (size_t count);
 
+  void
+  cancelRead ();
+
+  uint32_t
+  getLineErrors ();
+
+  bool
+  waitForModemChange (uint32_t timeout_ms);
+
+  void
+  setRS485Mode (bool enabled,
+                uint32_t rts_delay_before_send_us,
+                uint32_t rts_delay_after_send_us);
+
+  bool
+  getRS485Mode () const;
+
+  void
+  setLowLatency (bool enabled);
+
+  void
+  setExclusive (bool enabled);
+
+  void
+  setXonXoffChars (uint8_t xon, uint8_t xoff);
+
+  void
+  setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes);
+
   size_t
   read (uint8_t *buf, size_t size = 1);
 
@@ -205,6 +234,23 @@ private:
   HANDLE read_mutex;
   // Mutex used to lock the write functions
   HANDLE write_mutex;
+
+  // Accumulated line-error bitmask (see serial::LineError in serial.h).
+  // Updated by I/O paths via ClearCommError output and consumed by
+  // getLineErrors().
+  uint32_t line_errors_;
+
+  // Driver-side input/output buffer sizes requested via setDriverBufferSize.
+  // Applied inside open() with SetupComm.
+  uint32_t driver_in_buffer_;
+  uint32_t driver_out_buffer_;
+
+  // Settable XON / XOFF characters (DCB.XonChar / DCB.XoffChar).
+  uint8_t xon_char_;
+  uint8_t xoff_char_;
+
+  // RS-485 toggle state (translated to RTS_CONTROL_TOGGLE in reconfigure).
+  bool rs485_enabled_;
 };
 
 }
