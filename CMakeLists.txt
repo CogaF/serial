@@ -115,6 +115,7 @@ if(APPLE)
 elseif(UNIX)
     list(APPEND serial_SRCS
         src/impl/unix.cc
+        src/impl/unix_termios2.cc
         src/impl/list_ports/list_ports_linux.cc
         src/impl/hotplug_linux.cc)
 else()

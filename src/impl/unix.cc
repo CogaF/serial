@@ -21,13 +21,16 @@
 
 #if defined(__linux__)
 # include <linux/serial.h>
-# if __has_include(<asm/termbits.h>)
-#  include <asm/termbits.h>
-#  ifdef BOTHER
-#   define SERIAL_HAVE_TERMIOS2 1
-#  endif
-# endif
 #endif
+
+// termios2 / BOTHER lives in a separate TU to avoid redefining
+// `struct termios` (both <termios.h> and <asm/termbits.h> declare it).
+namespace serial {
+namespace detail {
+int  set_custom_baud_termios2 (int fd, std::uint32_t baudrate);
+bool termios2_available ();
+} // namespace detail
+} // namespace serial
 
 #include <sys/select.h>
 #include <sys/time.h>
@@ -463,36 +466,34 @@ Serial::SerialImpl::reconfigurePort ()
       THROW (IOException, errno);
     }
     // Linux Support
-#elif defined(SERIAL_HAVE_TERMIOS2)
-    // Prefer termios2 with BOTHER: it supports arbitrary baud rates on
-    // modern kernels without the deprecated ASYNC_SPD_CUST divisor trick.
-    struct termios2 tio2;
-    if (-1 == ioctl (fd_, TCGETS2, &tio2)) {
-      THROW (IOException, errno);
+#elif defined(__linux__)
+    // Prefer termios2 with BOTHER (via the isolated TU) when the kernel
+    // headers expose it; fall back to the legacy TIOCGSERIAL /
+    // ASYNC_SPD_CUST divisor trick otherwise.
+    if (detail::termios2_available ()) {
+      int err = detail::set_custom_baud_termios2 (fd_, baudrate_);
+      if (err != 0) {
+        THROW (IOException, err);
+      }
+    } else
+#  if defined(TIOCSSERIAL)
+    {
+      struct serial_struct ser;
+      if (-1 == ioctl (fd_, TIOCGSERIAL, &ser)) {
+        THROW (IOException, errno);
+      }
+      ser.custom_divisor = ser.baud_base / static_cast<int> (baudrate_);
+      ser.flags &= ~ASYNC_SPD_MASK;
+      ser.flags |= ASYNC_SPD_CUST;
+      if (-1 == ioctl (fd_, TIOCSSERIAL, &ser)) {
+        THROW (IOException, errno);
+      }
     }
-    tio2.c_cflag &= ~CBAUD;
-    tio2.c_cflag |= BOTHER;
-    tio2.c_ispeed = baudrate_;
-    tio2.c_ospeed = baudrate_;
-    if (-1 == ioctl (fd_, TCSETS2, &tio2)) {
-      THROW (IOException, errno);
+#  else
+    {
+      THROW (IOException, "OS does not currently support arbitrary baud rates");
     }
-#elif defined(__linux__) && defined (TIOCSSERIAL)
-    struct serial_struct ser;
-
-    if (-1 == ioctl (fd_, TIOCGSERIAL, &ser)) {
-      THROW (IOException, errno);
-    }
-
-    // set custom divisor
-    ser.custom_divisor = ser.baud_base / static_cast<int> (baudrate_);
-    // update flags
-    ser.flags &= ~ASYNC_SPD_MASK;
-    ser.flags |= ASYNC_SPD_CUST;
-
-    if (-1 == ioctl (fd_, TIOCSSERIAL, &ser)) {
-      THROW (IOException, errno);
-    }
+#  endif
 #else
     throw invalid_argument ("OS does not currently support custom bauds");
 #endif
