@@ -1,6 +1,13 @@
 /* Copyright 2012 William Woodall and John Harrison */
 #include <algorithm>
 
+#ifndef SERIAL_VERSION_STRING
+#  define SERIAL_VERSION_STRING "2.0.0+0"
+#endif
+#ifndef SERIAL_COMMIT_COUNT
+#  define SERIAL_COMMIT_COUNT 0
+#endif
+
 #if !defined(_WIN32) && !defined(__OpenBSD__) && !defined(__FreeBSD__)
 # include <alloca.h>
 #endif
@@ -482,3 +489,13 @@ void Serial::setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes)
 {
   pimpl_->setDriverBufferSize (in_bytes, out_bytes);
 }
+
+namespace serial {
+
+const char* version ()        { return SERIAL_VERSION_STRING; }
+uint32_t    version_major ()  { return 2; }
+uint32_t    version_minor ()  { return 0; }
+uint32_t    version_patch ()  { return 0; }
+uint32_t    version_commits () { return static_cast<uint32_t>(SERIAL_COMMIT_COUNT); }
+
+} // namespace serial

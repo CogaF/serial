@@ -892,6 +892,17 @@ int registerHotplugCallback (HotplugCallback cb);
  *  monitor thread when the last callback is removed. */
 void unregisterHotplugCallback (int token);
 
+/*! Returns a version string in the form "<major>.<minor>.<patch>+<commits>". */
+const char* version ();
+/*! Returns the major component of the library version. */
+uint32_t version_major ();
+/*! Returns the minor component of the library version. */
+uint32_t version_minor ();
+/*! Returns the patch component of the library version. */
+uint32_t version_patch ();
+/*! Returns the number of commits reachable from the build HEAD. */
+uint32_t version_commits ();
+
 } // namespace serial
 
 #endif
