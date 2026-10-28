@@ -111,7 +111,12 @@ Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
                                 flowcontrol_t flowcontrol)
   : port_ (port), fd_ (-1), is_open_ (false), xonxoff_ (false), rtscts_ (false),
     baudrate_ (baudrate), parity_ (parity),
-    bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol)
+    bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol),
+    wakeup_read_fd_ (-1), wakeup_write_fd_ (-1),
+    line_errors_ (0),
+    rs485_enabled_ (false), rs485_delay_before_us_ (0), rs485_delay_after_us_ (0),
+    exclusive_ (false), low_latency_ (false),
+    xon_char_ (0x11), xoff_char_ (0x13)
 {
   pthread_mutex_init(&this->read_mutex, NULL);
   pthread_mutex_init(&this->write_mutex, NULL);
@@ -1042,6 +1047,16 @@ Serial::SerialImpl::getCD ()
   else
   {
     return 0 != (status & TIOCM_CD);
+  }
+}
+
+void
+Serial::SerialImpl::cancelRead ()
+{
+  if (wakeup_write_fd_ != -1) {
+    uint8_t b = 1;
+    ssize_t n = ::write (wakeup_write_fd_, &b, 1);
+    (void)n;
   }
 }
 

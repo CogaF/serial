@@ -434,3 +434,8 @@ bool Serial::getCD ()
 {
   return pimpl_->getCD ();
 }
+
+void Serial::cancelRead ()
+{
+  pimpl_->cancelRead ();
+}

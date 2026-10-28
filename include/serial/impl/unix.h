@@ -92,6 +92,35 @@ public:
   void
   waitByteTimes (size_t count);
 
+  void
+  cancelRead ();
+
+  uint32_t
+  getLineErrors ();
+
+  bool
+  waitForModemChange (uint32_t timeout_ms);
+
+  void
+  setRS485Mode (bool enabled,
+                uint32_t rts_delay_before_send_us,
+                uint32_t rts_delay_after_send_us);
+
+  bool
+  getRS485Mode () const;
+
+  void
+  setLowLatency (bool enabled);
+
+  void
+  setExclusive (bool enabled);
+
+  void
+  setXonXoffChars (uint8_t xon, uint8_t xoff);
+
+  void
+  setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes);
+
   size_t
   read (uint8_t *buf, size_t size = 1);
 
@@ -212,6 +241,32 @@ private:
   pthread_mutex_t read_mutex;
   // Mutex used to lock the write functions
   pthread_mutex_t write_mutex;
+
+  // Wake-up descriptor pair used to unblock a thread stuck in the
+  // read/pselect loop (cancelRead). wakeup_read_fd_ is the end that the
+  // reader multiplexes alongside the serial fd; wakeup_write_fd_ is the
+  // end cancelRead writes into. On Linux both are the same eventfd when
+  // available; on other POSIX systems a classic pipe pair is used.
+  int wakeup_read_fd_;
+  int wakeup_write_fd_;
+
+  // Accumulated line-error bitmask (see serial::LineError in serial.h).
+  uint32_t line_errors_;
+
+  // RS-485 state (Linux: forwarded to TIOCSRS485; other platforms: ignored).
+  bool rs485_enabled_;
+  uint32_t rs485_delay_before_us_;
+  uint32_t rs485_delay_after_us_;
+
+  // Exclusive access flag (Linux: TIOCEXCL/TIOCNXCL; others: ignored).
+  bool exclusive_;
+
+  // Low-latency flag (Linux: ASYNC_LOW_LATENCY; others: ignored).
+  bool low_latency_;
+
+  // Settable XON / XOFF characters (termios c_cc[VSTART]/c_cc[VSTOP]).
+  uint8_t xon_char_;
+  uint8_t xoff_char_;
 };
 
 }

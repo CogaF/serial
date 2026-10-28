@@ -774,6 +774,17 @@ Serial::SerialImpl::writeUnlock()
 }
 
 void
+Serial::SerialImpl::cancelRead ()
+{
+  if (!is_open_) {
+    return;
+  }
+  // CancelIoEx interrupts any blocking I/O (sync or overlapped) issued on
+  // the handle by any thread.
+  CancelIoEx (fd_, nullptr);
+}
+
+void
 Serial::SerialImpl::setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes)
 {
   driver_in_buffer_ = in_bytes;

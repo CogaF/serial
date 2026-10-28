@@ -655,6 +655,14 @@ public:
   bool
   getCD ();
 
+  /*! Unblock a blocking read from another thread.
+   *
+   * Windows: implemented via CancelIoEx. POSIX: implemented via a wake-up
+   * descriptor (eventfd on Linux, a pipe on macOS) multiplexed into the
+   * read loop. Safe to call on a closed port (no-op). */
+  void
+  cancelRead ();
+
 private:
   // Disable copy constructors
   Serial(const Serial&);
