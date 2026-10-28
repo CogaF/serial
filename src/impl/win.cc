@@ -129,6 +129,9 @@ Serial::SerialImpl::open ()
           }
       }
 
+      // Request a larger driver-side ring buffer for better throughput.
+      // Failure here is not fatal: SetupComm is only a hint to the driver.
+      SetupComm (fd_, driver_in_buffer_, driver_out_buffer_);
       reconfigurePort();
       is_open_ = true;
   }
@@ -767,6 +770,16 @@ Serial::SerialImpl::writeUnlock()
 {
   if (!ReleaseMutex(write_mutex)) {
     THROW (IOException, "Error releasing write mutex.");
+  }
+}
+
+void
+Serial::SerialImpl::setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes)
+{
+  driver_in_buffer_ = in_bytes;
+  driver_out_buffer_ = out_bytes;
+  if (is_open_) {
+    SetupComm (fd_, driver_in_buffer_, driver_out_buffer_);
   }
 }
 
