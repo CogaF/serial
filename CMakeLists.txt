@@ -25,6 +25,33 @@ endif()
 set(SERIAL_VERSION_STRING "${PROJECT_VERSION}+${SERIAL_COMMIT_COUNT}")
 
 # -----------------------------------------------------------------------------
+# Published artifact layout: mirror the Visual Studio layout under
+# <source>/serial_lib_structure/<Platform>/<Config>/ so every platform
+# produces the same tree. Headers are copied there as a post-build step.
+# -----------------------------------------------------------------------------
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(SERIAL_PLATFORM_TAG "x64")
+else()
+    set(SERIAL_PLATFORM_TAG "Win32")
+endif()
+set(SERIAL_STRUCTURE_ROOT "${CMAKE_SOURCE_DIR}/serial_lib_structure")
+if(CMAKE_CONFIGURATION_TYPES)
+    foreach(_cfg IN LISTS CMAKE_CONFIGURATION_TYPES)
+        string(TOUPPER "${_cfg}" _CFG)
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_CFG} "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${_cfg}")
+    endforeach()
+else()
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Release)
+    endif()
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SERIAL_STRUCTURE_ROOT}/${SERIAL_PLATFORM_TAG}/${CMAKE_BUILD_TYPE}")
+endif()
+
+# -----------------------------------------------------------------------------
 # Catkin shim (ROS 1) — only engaged when invoked from a catkin workspace.
 # -----------------------------------------------------------------------------
 if(CATKIN_DEVEL_PREFIX OR CATKIN_BUILD_BINARY_PACKAGE)
@@ -99,6 +126,24 @@ elseif(UNIX)
 else()
     target_link_libraries(${PROJECT_NAME} PUBLIC setupapi)
 endif()
+
+# Publish public headers into serial_lib_structure/include/serial after each
+# successful build, so the artifact tree mirrors the Visual Studio layout.
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${SERIAL_STRUCTURE_ROOT}/include/serial/impl"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/serial.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/v8stdint.h"
+        "${SERIAL_STRUCTURE_ROOT}/include/serial/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/impl/unix.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/impl/win.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/impl/win_compat.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/serial/impl/hotplug.h"
+        "${SERIAL_STRUCTURE_ROOT}/include/serial/impl/"
+    COMMENT "Publishing headers to serial_lib_structure/include/"
+    VERBATIM)
 
 # Example
 add_executable(serial_example examples/serial_example.cc)
