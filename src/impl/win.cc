@@ -774,6 +774,20 @@ Serial::SerialImpl::writeUnlock()
 }
 
 void
+Serial::SerialImpl::setXonXoffChars (uint8_t xon, uint8_t xoff)
+{
+  xon_char_ = xon;
+  xoff_char_ = xoff;
+  if (!is_open_) return;
+  DCB dcb = {0};
+  dcb.DCBlength = sizeof(dcb);
+  if (!GetCommState (fd_, &dcb)) return;
+  dcb.XonChar  = static_cast<char>(xon);
+  dcb.XoffChar = static_cast<char>(xoff);
+  SetCommState (fd_, &dcb);
+}
+
+void
 Serial::SerialImpl::setRS485Mode (bool enabled,
                                   uint32_t /*rts_delay_before_send_us*/,
                                   uint32_t /*rts_delay_after_send_us*/)

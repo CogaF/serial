@@ -1126,6 +1126,25 @@ Serial::SerialImpl::getCD ()
 }
 
 void
+Serial::SerialImpl::setXonXoffChars (uint8_t xon, uint8_t xoff)
+{
+  xon_char_ = xon;
+  xoff_char_ = xoff;
+  if (!is_open_) return;
+  struct termios options;
+  if (tcgetattr (fd_, &options) == -1) return;
+  options.c_cc[VSTART] = xon;
+  options.c_cc[VSTOP]  = xoff;
+  tcsetattr (fd_, TCSANOW, &options);
+}
+
+void
+Serial::SerialImpl::setDriverBufferSize (uint32_t /*in_bytes*/, uint32_t /*out_bytes*/)
+{
+  // POSIX termios drivers do not expose a tunable buffer size. No-op.
+}
+
+void
 Serial::SerialImpl::setRS485Mode (bool enabled,
                                   uint32_t rts_delay_before_send_us,
                                   uint32_t rts_delay_after_send_us)

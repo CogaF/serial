@@ -472,3 +472,13 @@ bool Serial::getRS485Mode () const
 {
   return pimpl_->getRS485Mode ();
 }
+
+void Serial::setXonXoffChars (uint8_t xon, uint8_t xoff)
+{
+  pimpl_->setXonXoffChars (xon, xoff);
+}
+
+void Serial::setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes)
+{
+  pimpl_->setDriverBufferSize (in_bytes, out_bytes);
+}

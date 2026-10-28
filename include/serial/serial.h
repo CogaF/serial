@@ -704,6 +704,20 @@ public:
   void
   setLowLatency (bool enabled);
 
+  /*! Override the characters used for software flow control.
+   *
+   * Windows: DCB.XonChar / DCB.XoffChar. POSIX: termios c_cc[VSTART] /
+   * c_cc[VSTOP]. Takes effect on the next reconfigure. */
+  void
+  setXonXoffChars (uint8_t xon, uint8_t xoff);
+
+  /*! Request a larger driver-side buffer.
+   *
+   * Windows: SetupComm with in_bytes / out_bytes. POSIX: no-op (buffer
+   * sizes are not application-tunable on standard termios drivers). */
+  void
+  setDriverBufferSize (uint32_t in_bytes, uint32_t out_bytes);
+
   /*! Request exclusive access to the port.
    *
    * Linux: TIOCEXCL / TIOCNXCL. Windows: ports are already opened for
