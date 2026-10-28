@@ -43,6 +43,7 @@
 #include <sstream>
 #include <exception>
 #include <stdexcept>
+#include <functional>
 #include <serial/v8stdint.h>
 
 #define THROW(exceptionClass, message) throw exceptionClass(__FILE__, \
@@ -876,6 +877,20 @@ struct PortInfo {
  */
 std::vector<PortInfo>
 list_ports();
+
+/*! Callback signature invoked when a serial port is added or removed.
+ *  The added flag is true for a new device, false for a removal. */
+using HotplugCallback = std::function<void(const PortInfo&, bool added)>;
+
+/*! Register a hotplug callback. Returns a non-negative token on success,
+ *  or -1 when hotplug monitoring is not available in this build (for
+ *  example Linux without libudev). Starts a background monitor thread on
+ *  first registration. */
+int registerHotplugCallback (HotplugCallback cb);
+
+/*! Unregister a previously-registered callback. Stops the background
+ *  monitor thread when the last callback is removed. */
+void unregisterHotplugCallback (int token);
 
 } // namespace serial
 
