@@ -304,11 +304,16 @@ Serial::setPort (const string &port)
 std::wstring
 Serial::getPort () const
 {
-  // The pimpl stores the port name as std::string; serial-port names
-  // are ASCII (COM3, /dev/ttyS0, …) so a per-char widening is safe
-  // and portable across compilers.
+#if defined(_WIN32)
+  // On Windows the pimpl already stores the port name as std::wstring.
+  return pimpl_->getPort ();
+#else
+  // The POSIX pimpl stores it as std::string; serial-port names are
+  // ASCII (/dev/ttyS0, …) so a per-char widening is safe. gcc rejects
+  // the implicit conversion that MSVC accepts, so widen explicitly.
   const std::string s = pimpl_->getPort ();
   return std::wstring (s.begin (), s.end ());
+#endif
 }
 
 void

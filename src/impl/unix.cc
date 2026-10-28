@@ -25,6 +25,7 @@
 
 // termios2 / BOTHER lives in a separate TU to avoid redefining
 // `struct termios` (both <termios.h> and <asm/termbits.h> declare it).
+#include <cstdint>
 namespace serial {
 namespace detail {
 int  set_custom_baud_termios2 (int fd, std::uint32_t baudrate);
