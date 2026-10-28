@@ -2,6 +2,50 @@
 Changelog for package serial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.0
+-----
+* Cross-platform optimization pass. Fully backward compatible: no
+  existing Serial method signature or PortInfo field was changed or
+  removed; all additions are purely additive.
+* Windows: ``waitReadable``, ``waitByteTimes`` and ``sendBreak`` now
+  work (previously threw).
+* Windows: driver-side input/output buffer enlarged via ``SetupComm``,
+  tunable through ``setDriverBufferSize``.
+* New ``cancelRead`` method unblocks a reader from another thread.
+  Linux uses an eventfd wake-up multiplexed into the read loop; Windows
+  uses ``CancelIoEx``.
+* Linux: custom baud rates via ``termios2`` / ``BOTHER`` when the
+  kernel supports it, with the legacy ``ASYNC_SPD_CUST`` divisor path
+  kept as a fallback.
+* Linux: ``setExclusive`` (TIOCEXCL / TIOCNXCL), ``setLowLatency``
+  (ASYNC_LOW_LATENCY) and ``setRS485Mode`` (TIOCSRS485) added. Windows
+  implements the RS-485 toggle through ``RTS_CONTROL_TOGGLE``; macOS
+  treats these as no-ops.
+* New ``getLineErrors`` returns and clears an accumulated bitmask of
+  frame/parity/overrun/break/buffer-overflow line errors.
+* New ``waitForModemChange(timeout_ms)`` waits with a bounded timeout.
+* ``setXonXoffChars`` lets callers override the characters used for
+  software flow control.
+* ``PortInfo`` gained ``vid``, ``pid``, ``serial_number``,
+  ``manufacturer``, ``product``, ``location`` and ``driver`` fields,
+  populated from sysfs / Setup API / IOKit respectively (added at the
+  end of the struct to preserve brace-initialization order).
+* New namespace-level ``registerHotplugCallback`` /
+  ``unregisterHotplugCallback``. Linux uses libudev when available
+  (``SERIAL_HAVE_LIBUDEV``); Windows and macOS poll
+  ``list_ports`` from a background worker.
+* Modernized CMake (3.15+): shared and static builds, install / export
+  with ``serialTargets.cmake`` and version config, libudev detection
+  through pkg-config, catkin shim retained for ROS 1.
+* Added ``serial::version()``, ``version_major``, ``version_minor``,
+  ``version_patch``, ``version_commits``. The runtime version string is
+  ``"2.0.0+<commits>"``.
+* Added a Windows macro-compat header (``serial/impl/win_compat.h``) so
+  ``<windows.h>`` macros such as ``small``, ``ERROR`` and ``interface``
+  do not leak into the serial API or downstream consumers.
+* Added pty-based tests on Linux and a GitHub Actions workflow building
+  on Linux and Windows.
+
 1.2.1 (2015-04-21)
 ------------------
 * Removed the use of a C++11 feature for compatibility with older browsers.

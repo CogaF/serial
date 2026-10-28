@@ -26,6 +26,48 @@ Website: http://wjwwood.github.io/serial/
 
 API Documentation: http://wjwwood.github.io/serial/doc/1.1.0/index.html
 
+### 2.0 additions
+
+All additions below are backward compatible: existing method signatures
+and `PortInfo` fields are unchanged.
+
+New methods on `serial::Serial`:
+
+* `cancelRead()` – unblocks a blocking `read` from another thread.
+  Windows uses `CancelIoEx`; Linux uses an eventfd wake-up multiplexed
+  into the read loop.
+* `getLineErrors()` – returns and clears a bitmask of
+  frame/parity/overrun/break/buffer-overflow errors (`serial::LineError`).
+* `waitForModemChange(timeout_ms)` – bounded wait for a CTS/DSR/RI/CD
+  change.
+* `setRS485Mode(enabled, before_us, after_us)` / `getRS485Mode()` –
+  Linux (TIOCSRS485) and Windows (RTS_CONTROL_TOGGLE).
+* `setLowLatency(enabled)` – Linux `ASYNC_LOW_LATENCY`.
+* `setExclusive(enabled)` – Linux TIOCEXCL/TIOCNXCL.
+* `setXonXoffChars(xon, xoff)` – settable software flow-control chars.
+* `setDriverBufferSize(in, out)` – Windows `SetupComm`; POSIX no-op.
+
+Namespace-level additions:
+
+* `registerHotplugCallback(cb)` / `unregisterHotplugCallback(token)` –
+  background monitor for serial port insert/remove events. Linux uses
+  libudev when available (otherwise returns -1); Windows and macOS use
+  a polling worker.
+* `version()`, `version_major()`, `version_minor()`, `version_patch()`,
+  `version_commits()`.
+
+`PortInfo` now also carries `vid`, `pid`, `serial_number`,
+`manufacturer`, `product`, `location` and `driver` strings (populated
+from sysfs / SetupAPI / IOKit).
+
+Windows: `waitReadable`, `waitByteTimes` and `sendBreak` now work
+(previously threw). Driver-side input/output buffer is enlarged via
+`SetupComm` on open (tunable through `setDriverBufferSize`).
+
+The build system has been modernized: `cmake_minimum_required 3.15`,
+C++17, install/export through `serialTargets.cmake`, optional libudev
+detection, and the catkin shim retained for ROS 1 users.
+
 ### Dependencies
 
 Required:
