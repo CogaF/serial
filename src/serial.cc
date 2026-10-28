@@ -439,3 +439,8 @@ void Serial::cancelRead ()
 {
   pimpl_->cancelRead ();
 }
+
+void Serial::setExclusive (bool enabled)
+{
+  pimpl_->setExclusive (enabled);
+}

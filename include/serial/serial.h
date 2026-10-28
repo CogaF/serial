@@ -655,6 +655,13 @@ public:
   bool
   getCD ();
 
+  /*! Request exclusive access to the port.
+   *
+   * Linux: TIOCEXCL / TIOCNXCL. Windows: ports are already opened for
+   * exclusive access, so this is a no-op. macOS: no-op. */
+  void
+  setExclusive (bool enabled);
+
   /*! Unblock a blocking read from another thread.
    *
    * Windows: implemented via CancelIoEx. POSIX: implemented via a wake-up

@@ -774,6 +774,13 @@ Serial::SerialImpl::writeUnlock()
 }
 
 void
+Serial::SerialImpl::setExclusive (bool /*enabled*/)
+{
+  // Windows opens serial ports with no sharing flags (see CreateFileW
+  // call above), which already yields exclusive access. No-op.
+}
+
+void
 Serial::SerialImpl::cancelRead ()
 {
   if (!is_open_) {

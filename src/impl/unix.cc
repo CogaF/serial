@@ -1119,6 +1119,27 @@ Serial::SerialImpl::getCD ()
 }
 
 void
+Serial::SerialImpl::setExclusive (bool enabled)
+{
+  exclusive_ = enabled;
+#if defined(__linux__) && defined(TIOCEXCL) && defined(TIOCNXCL)
+  if (is_open_) {
+    if (enabled) {
+      if (-1 == ioctl (fd_, TIOCEXCL)) {
+        THROW (IOException, errno);
+      }
+    } else {
+      if (-1 == ioctl (fd_, TIOCNXCL)) {
+        THROW (IOException, errno);
+      }
+    }
+  }
+#else
+  // Not supported on this platform.
+#endif
+}
+
+void
 Serial::SerialImpl::cancelRead ()
 {
   if (wakeup_write_fd_ != -1) {
