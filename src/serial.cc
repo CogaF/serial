@@ -477,6 +477,11 @@ uint32_t Serial::getLineErrors ()
   return pimpl_->getLineErrors ();
 }
 
+bool Serial::getLineErrorCounts (LineErrorCounts &totals)
+{
+  return pimpl_->getLineErrorCounts (totals);
+}
+
 bool Serial::waitForModemChange (uint32_t timeout_ms)
 {
   return pimpl_->waitForModemChange (timeout_ms);

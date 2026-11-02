@@ -132,6 +132,8 @@ Serial::SerialImpl::open ()
       // Request a larger driver-side ring buffer for better throughput.
       // Failure here is not fatal: SetupComm is only a hint to the driver.
       SetupComm (fd_, driver_in_buffer_, driver_out_buffer_);
+      line_errors_ = 0;
+      line_error_counts_ = LineErrorCounts ();
       reconfigurePort();
       is_open_ = true;
   }
@@ -426,11 +428,7 @@ Serial::SerialImpl::waitReadable (uint32_t timeout)
     if (!ClearCommError (fd_, &errs, &cs)) {
       return false;
     }
-    if (errs & CE_FRAME)    line_errors_ |= 1u;  // frame
-    if (errs & CE_RXPARITY) line_errors_ |= 2u;  // parity
-    if (errs & CE_OVERRUN)  line_errors_ |= 4u;  // overrun
-    if (errs & CE_BREAK)    line_errors_ |= 8u;  // break
-    if (errs & CE_RXOVER)   line_errors_ |= 16u; // driver buffer overflow
+    foldCommErrors (errs);
     if (cs.cbInQue > 0) {
       return true;
     }
@@ -848,6 +846,31 @@ Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
   }
 }
 
+void
+Serial::SerialImpl::foldCommErrors (DWORD errs)
+{
+  if (errs & CE_FRAME)    { line_errors_ |= serial::line_error_frame;           ++line_error_counts_.frame; }
+  if (errs & CE_RXPARITY) { line_errors_ |= serial::line_error_parity;          ++line_error_counts_.parity; }
+  if (errs & CE_OVERRUN)  { line_errors_ |= serial::line_error_overrun;         ++line_error_counts_.overrun; }
+  if (errs & CE_BREAK)    { line_errors_ |= serial::line_error_break;           ++line_error_counts_.brk; }
+  if (errs & CE_RXOVER)   { line_errors_ |= serial::line_error_buffer_overflow; ++line_error_counts_.buffer_overflow; }
+}
+
+bool
+Serial::SerialImpl::getLineErrorCounts (LineErrorCounts &totals)
+{
+  if (!is_open_) {
+    return false;
+  }
+  DWORD errs = 0;
+  COMSTAT cs = {0};
+  if (ClearCommError (fd_, &errs, &cs)) {
+    foldCommErrors (errs);
+  }
+  totals = line_error_counts_;
+  return true;
+}
+
 uint32_t
 Serial::SerialImpl::getLineErrors ()
 {
@@ -856,11 +879,7 @@ Serial::SerialImpl::getLineErrors ()
     DWORD errs = 0;
     COMSTAT cs = {0};
     if (ClearCommError (fd_, &errs, &cs)) {
-      if (errs & CE_FRAME)    line_errors_ |= serial::line_error_frame;
-      if (errs & CE_RXPARITY) line_errors_ |= serial::line_error_parity;
-      if (errs & CE_OVERRUN)  line_errors_ |= serial::line_error_overrun;
-      if (errs & CE_BREAK)    line_errors_ |= serial::line_error_break;
-      if (errs & CE_RXOVER)   line_errors_ |= serial::line_error_buffer_overflow;
+      foldCommErrors (errs);
     }
   }
   uint32_t out = line_errors_;

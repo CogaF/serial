@@ -82,6 +82,18 @@ enum LineError : uint32_t {
 };
 
 /*!
+ * Line error totals since the port was opened (Serial::getLineErrorCounts).
+ */
+struct LineErrorCounts {
+  uint64_t frame;            /*!< framing errors (wrong stop bit: baud rate or format) */
+  uint64_t parity;           /*!< parity errors */
+  uint64_t overrun;          /*!< the UART received a byte before the last was read */
+  uint64_t brk;              /*!< breaks received */
+  uint64_t buffer_overflow;  /*!< the driver's input buffer was full: bytes lost */
+  LineErrorCounts () : frame (0), parity (0), overrun (0), brk (0), buffer_overflow (0) {}
+};
+
+/*!
  * Enumeration defines the possible bytesizes for the serial port.
  */
 typedef enum {
@@ -698,10 +710,21 @@ public:
   bool
   getCD ();
 
-  /*! Returns the accumulated LineError bitmask since the last call and
-   * clears it. See serial::LineError. */
+  /*! Returns the LineError bitmask of the errors seen since the last call
+   * and clears it. See serial::LineError. */
   uint32_t
   getLineErrors ();
+
+  /*! Line error totals since the port was opened.
+   *
+   * Linux: the driver's own counters (TIOCGICOUNT) - every error is counted.
+   * Windows: ClearCommError, read here and while waiting for data - each
+   * error type counts once per reading, so several errors between two
+   * readings count as one. Returns false (and leaves totals unchanged) when
+   * the driver cannot tell (e.g. a pty, some USB adapters on Linux) or on
+   * other platforms. */
+  bool
+  getLineErrorCounts (LineErrorCounts &totals);
 
   /*! Wait for a change on any of CTS/DSR/RI/CD, bounded by timeout_ms.
    *

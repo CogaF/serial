@@ -126,7 +126,7 @@ Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
     baudrate_ (baudrate), parity_ (parity),
     bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol),
     wakeup_read_fd_ (-1), wakeup_write_fd_ (-1), read_cancelled_ (false),
-    line_errors_ (0),
+    line_errors_ (0), icount_ok_ (false),
     rs485_enabled_ (false), rs485_delay_before_us_ (0), rs485_delay_after_us_ (0),
     exclusive_ (false), low_latency_ (false),
     xon_char_ (0x11), xoff_char_ (0x13)
@@ -172,6 +172,11 @@ Serial::SerialImpl::open ()
 
   reconfigurePort();
   is_open_ = true;
+
+  // The driver's line error counters run since boot: count from now.
+  icount_base_ = LineErrorCounts ();
+  icount_seen_ = LineErrorCounts ();
+  icount_ok_ = readIcount (icount_base_);
 
   // What was asked before opening (or before the last close) applies again.
   if (exclusive_) setExclusive (true);
@@ -1208,9 +1213,56 @@ Serial::SerialImpl::waitForModemChange (uint32_t timeout_ms)
   return false;
 }
 
+bool
+Serial::SerialImpl::readIcount (LineErrorCounts &counts) const
+{
+#if defined(__linux__) && defined(TIOCGICOUNT)
+  struct serial_icounter_struct ic;
+  memset (&ic, 0, sizeof (ic));
+  if (fd_ == -1 || ioctl (fd_, TIOCGICOUNT, &ic) != 0) {
+    return false; // e.g. a pty, some USB serial drivers
+  }
+  counts.frame = static_cast<uint64_t> (ic.frame);
+  counts.parity = static_cast<uint64_t> (ic.parity);
+  counts.overrun = static_cast<uint64_t> (ic.overrun);
+  counts.brk = static_cast<uint64_t> (ic.brk);
+  counts.buffer_overflow = static_cast<uint64_t> (ic.buf_overrun);
+  return true;
+#else
+  (void) counts;
+  return false;
+#endif
+}
+
+bool
+Serial::SerialImpl::getLineErrorCounts (LineErrorCounts &totals)
+{
+  LineErrorCounts now;
+  if (!is_open_ || !icount_ok_ || !readIcount (now)) {
+    return false;
+  }
+  // The kernel counters are 32-bit and may wrap: unsigned differences.
+  totals.frame = static_cast<uint32_t> (now.frame - icount_base_.frame);
+  totals.parity = static_cast<uint32_t> (now.parity - icount_base_.parity);
+  totals.overrun = static_cast<uint32_t> (now.overrun - icount_base_.overrun);
+  totals.brk = static_cast<uint32_t> (now.brk - icount_base_.brk);
+  totals.buffer_overflow = static_cast<uint32_t> (now.buffer_overflow - icount_base_.buffer_overflow);
+  return true;
+}
+
 uint32_t
 Serial::SerialImpl::getLineErrors ()
 {
+  // New since the last call: the counters that grew.
+  LineErrorCounts totals;
+  if (getLineErrorCounts (totals)) {
+    if (totals.frame != icount_seen_.frame) line_errors_ |= serial::line_error_frame;
+    if (totals.parity != icount_seen_.parity) line_errors_ |= serial::line_error_parity;
+    if (totals.overrun != icount_seen_.overrun) line_errors_ |= serial::line_error_overrun;
+    if (totals.brk != icount_seen_.brk) line_errors_ |= serial::line_error_break;
+    if (totals.buffer_overflow != icount_seen_.buffer_overflow) line_errors_ |= serial::line_error_buffer_overflow;
+    icount_seen_ = totals;
+  }
   uint32_t out = line_errors_;
   line_errors_ = 0;
   return out;

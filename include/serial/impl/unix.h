@@ -102,6 +102,12 @@ public:
   getLineErrors ();
 
   bool
+  getLineErrorCounts (LineErrorCounts &totals);
+
+  bool
+  readIcount (LineErrorCounts &counts) const;
+
+  bool
   waitForModemChange (uint32_t timeout_ms);
 
   void
@@ -257,6 +263,11 @@ private:
 
   // Accumulated line-error bitmask (see serial::LineError in serial.h).
   uint32_t line_errors_;
+  // Line error counters: the driver's at open (subtracted), and the totals
+  // last seen by getLineErrors (to tell what is new).
+  LineErrorCounts icount_base_;
+  LineErrorCounts icount_seen_;
+  bool icount_ok_;
 
   // RS-485 state (Linux: forwarded to TIOCSRS485; other platforms: ignored).
   bool rs485_enabled_;

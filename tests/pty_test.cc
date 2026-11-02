@@ -156,5 +156,18 @@ int main ()
         ::close (master);
     }
 
+    // ----- line error counts: a pty has no UART counters -----
+    {
+        int master = -1;
+        std::string slave_path;
+        REQUIRE (open_pty (master, slave_path) == 0);
+        serial::Serial s (slave_path, 115200, serial::Timeout::simpleTimeout (100));
+        serial::LineErrorCounts totals;
+        totals.frame = 7;
+        REQUIRE (!s.getLineErrorCounts (totals) && totals.frame == 7); // not known, untouched
+        REQUIRE (s.getLineErrors () == 0);
+        ::close (master);
+    }
+
     return 0;
 }

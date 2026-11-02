@@ -96,6 +96,12 @@ public:
   getLineErrors ();
 
   bool
+  getLineErrorCounts (LineErrorCounts &totals);
+
+  void
+  foldCommErrors (DWORD errors);
+
+  bool
   waitForModemChange (uint32_t timeout_ms);
 
   void
@@ -242,6 +248,8 @@ private:
   // Updated by I/O paths via ClearCommError output and consumed by
   // getLineErrors().
   uint32_t line_errors_;
+  // Line error totals since open (each type once per ClearCommError reading).
+  LineErrorCounts line_error_counts_;
 
   // Driver-side input/output buffer sizes requested via setDriverBufferSize.
   // Applied inside open() with SetupComm.
