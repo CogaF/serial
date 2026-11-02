@@ -2,6 +2,40 @@
 Changelog for package serial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.1
+-----
+* Fixed: ``cancelRead`` on Linux never woke the reader (1-byte write to an
+  eventfd, which needs 8 bytes), and ``read`` went on waiting for its own
+  timeout; it now returns at once. Windows: a read cancelled by
+  ``CancelIoEx`` returns what was read instead of throwing.
+* Fixed: on Linux an ``EIO`` from ``read`` (a USB adapter unplugged) was
+  swallowed as a "framing error"; it is reported as a disconnect again
+  (``SerialException``), as in 1.x.
+* Fixed: RS-485 mode, XON / XOFF characters, exclusive access and low
+  latency were applied only to an open port and lost at the next open;
+  on Windows any reconfigure (a new baud rate) dropped RS-485 and the
+  XON / XOFF characters. They are kept and applied again. Windows:
+  switching RS-485 off gave RTS a fixed "off"; RTS now goes back to the
+  flow control and to the last ``setRTS`` level, which also survives a
+  reconfigure.
+* Added ``getLineErrorCounts`` (``LineErrorCounts``: totals since open).
+  Linux uses the driver's ``TIOCGICOUNT`` counters; ``getLineErrors`` on
+  Linux now reports real errors (before, only the ``EIO`` case above).
+* Added ``getNativeHandle`` (the port's ``HANDLE`` / file descriptor).
+* Fixed: hotplug - a program ending without unregistering crashed
+  (``std::terminate`` from a running global thread); a callback may now
+  unregister itself. Windows uses device notifications instead of
+  listing the ports every second; Linux without libudev compares the
+  port list instead of refusing (-1).
+* Windows ``PortInfo::serial_number``: read from USB and FTDI instance ids
+  only (it was "0000" for FTDI adapters and "0" for built-in ports).
+* Documentation matches the code: ``waitReadable`` / ``waitForModemChange``
+  check every few ms on Windows (no overlapped ``WaitCommEvent``),
+  ``setLowLatency`` is a no-op on Windows.
+* Tests: ``cancelRead`` must return within 1 s (it passed after the whole
+  60 s timeout); a vanished device makes ``read`` throw; settings made
+  before ``open`` apply; a pty has no line error counters.
+
 2.0.0
 -----
 * Cross-platform optimization pass. Fully backward compatible: no

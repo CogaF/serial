@@ -157,8 +157,11 @@ serial::list_ports()
 			}
 		}
 
-		// Serial number sits at the tail of the device instance id after
-		// the last backslash: "USB\\VID_xxxx&PID_yyyy\\<serial>".
+		// Serial number, from the device instance id:
+		//  - USB\VID_xxxx&PID_yyyy\<serial>        a USB device with a serial
+		//  - FTDIBUS\VID_xxxx+PID_yyyy+<serial>\0000  the FTDI driver
+		// A tail with '&' is an id Windows made up (no serial in the
+		// device); other buses (ACPI, PCI...) have none.
 		{
 			TCHAR instance_id[256];
 			DWORD inst_len = 0;
@@ -170,9 +173,17 @@ serial::list_ports()
 #else
 				std::string iid = instance_id;
 #endif
-				size_t last = iid.find_last_of('\\');
-				if (last != std::string::npos && last + 1 < iid.size()) {
-					port_entry.serial_number = iid.substr(last + 1);
+				std::string upper = iid;
+				for (auto& c : upper) c = (char)std::toupper((unsigned char)c);
+				const size_t first = iid.find('\\');
+				const size_t last = iid.find_last_of('\\');
+				if (upper.compare(0, 4, "USB\\") == 0 && last != std::string::npos && last + 1 < iid.size()) {
+					const std::string tail = iid.substr(last + 1);
+					if (tail.find('&') == std::string::npos) port_entry.serial_number = tail;
+				} else if (upper.compare(0, 8, "FTDIBUS\\") == 0 && first != last) {
+					const std::string middle = iid.substr(first + 1, last - first - 1);
+					const size_t plus = middle.find_last_of('+');
+					if (plus != std::string::npos) port_entry.serial_number = middle.substr(plus + 1);
 				}
 			}
 		}

@@ -282,7 +282,10 @@ public:
   /*! Block until there is serial data to read or read_timeout_constant
    * number of milliseconds have elapsed. The return value is true when
    * the function exits with the port in a readable state, false otherwise
-   * (due to timeout or select interruption). */
+   * (due to timeout, select interruption or cancelRead). POSIX: select on
+   * the port. Windows: the input queue is checked every 5 ms (the port is
+   * not opened for overlapped I/O, which a WaitCommEvent with a timeout
+   * would need). */
   bool
   waitReadable ();
 
@@ -728,10 +731,10 @@ public:
 
   /*! Wait for a change on any of CTS/DSR/RI/CD, bounded by timeout_ms.
    *
-   * Returns true if a change was observed, false on timeout. On Linux
-   * this uses TIOCMIWAIT with a cancellation deadline enforced via a
-   * modem-status poll; on Windows it uses WaitCommEvent on the modem
-   * event mask. macOS uses a short polling loop. */
+   * Returns true if a change was observed, false on timeout. The lines are
+   * read every 2 ms (POSIX, TIOCMGET) or 5 ms (Windows, GetCommModemStatus):
+   * a timed TIOCMIWAIT / WaitCommEvent is not available on a port opened
+   * this way. For a wait without timeout see waitForChange(). */
   bool
   waitForModemChange (uint32_t timeout_ms);
 
@@ -752,9 +755,10 @@ public:
 
   /*! Enable or disable low-latency mode on the underlying driver.
    *
-   * Linux: toggles ASYNC_LOW_LATENCY via TIOCGSERIAL/TIOCSSERIAL. Windows:
-   * attempts to lower FTDI LatencyTimer in the registry when possible;
-   * silent no-op if the key is not writable. macOS: no-op. */
+   * Linux: toggles ASYNC_LOW_LATENCY via TIOCGSERIAL/TIOCSSERIAL (kept and
+   * applied again at every open; silently ignored by drivers without it).
+   * Windows and macOS: no-op - on Windows the FTDI latency timer is a
+   * driver setting (Device Manager > Port Settings > Advanced). */
   void
   setLowLatency (bool enabled);
 

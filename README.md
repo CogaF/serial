@@ -34,9 +34,11 @@ against the pre-fork headers compiles against this version unchanged.
 
 | Method | What it does |
 |---|---|
-| `cancelRead()` | Unblocks a blocking `read()` from another thread. Windows: `CancelIoEx`. Linux: an eventfd multiplexed into the read loop. |
-| `getLineErrors()` | Returns and clears a bitmask of frame / parity / overrun / break / buffer-overflow errors accumulated since the last call (`serial::LineError`). |
-| `waitForModemChange(timeout_ms)` | Bounded wait for a change on CTS / DSR / RI / CD. |
+| `cancelRead()` | Unblocks a blocking `read()` from another thread at once (it returns what was read so far). Windows: `CancelIoEx`. Linux: an eventfd multiplexed into the read loop. |
+| `getLineErrors()` | Returns and clears a bitmask of frame / parity / overrun / break / buffer-overflow errors seen since the last call (`serial::LineError`). |
+| `getLineErrorCounts(totals)` | Line error totals since `open()` (`serial::LineErrorCounts`). Linux: the driver's `TIOCGICOUNT` counters (every error). Windows: from `ClearCommError` (each type once per reading). `false` when the driver cannot tell (a pty, some USB adapters). |
+| `getNativeHandle()` | The port's `HANDLE` (Windows) or file descriptor, for what the library does not offer. Do not close it. |
+| `waitForModemChange(timeout_ms)` | Bounded wait for a change on CTS / DSR / RI / CD (the lines are read every 2 ms on POSIX, 5 ms on Windows). |
 | `setRS485Mode(enabled, before_us, after_us)` / `getRS485Mode()` | Linux: `TIOCSRS485`. Windows: `RTS_CONTROL_TOGGLE`. macOS: no-op. |
 | `setLowLatency(enabled)` | Linux `ASYNC_LOW_LATENCY` via `TIOCGSERIAL` / `TIOCSSERIAL`. Windows is a documented no-op (FTDI `LatencyTimer` registry key needs elevation and is site-specific). |
 | `setExclusive(enabled)` | Linux: `TIOCEXCL` / `TIOCNXCL`. Windows: already exclusive by default (no-op). |
@@ -47,8 +49,8 @@ against the pre-fork headers compiles against this version unchanged.
 
 | Function | What it does |
 |---|---|
-| `registerHotplugCallback(cb)` / `unregisterHotplugCallback(token)` | Background monitor for port insertions / removals. Linux uses `libudev` when available (returns `-1` otherwise). Windows and macOS use a `list_ports()` polling worker. |
-| `version()`, `version_major()`, `version_minor()`, `version_patch()`, `version_commits()` | Report `"2.0.0+<commit-count>"` as computed at build time. |
+| `registerHotplugCallback(cb)` / `unregisterHotplugCallback(token)` | Background monitor for port insertions / removals. Windows: device notifications (`RegisterDeviceNotification`) plus a check every 5 s. Linux: `libudev` events, or `list_ports()` compared every second without it. macOS: `list_ports()` every second. The callback runs on the monitor thread; the thread stops with the last callback, or at exit. |
+| `version()`, `version_major()`, `version_minor()`, `version_patch()`, `version_commits()` | Report `"2.0.1+<commit-count>"` as computed at build time. |
 
 **`PortInfo` enrichment** — existing fields (`port`, `description`,
 `hardware_id`) keep their position and type. The new fields are
