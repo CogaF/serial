@@ -254,6 +254,9 @@ private:
 
   // RS-485 toggle state (translated to RTS_CONTROL_TOGGLE in reconfigure).
   bool rs485_enabled_;
+  // The RTS level last set with setRTS (-1: never), restored after a
+  // reconfigure (which resets RTS when nothing else drives it).
+  int rts_level_;
 };
 
 }

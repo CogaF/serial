@@ -41,7 +41,7 @@ Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
     line_errors_ (0),
     driver_in_buffer_ (65536), driver_out_buffer_ (65536),
     xon_char_ (0x11), xoff_char_ (0x13),
-    rs485_enabled_ (false)
+    rs485_enabled_ (false), rts_level_ (-1)
 {
   read_mutex = CreateMutex(NULL, false, NULL);
   write_mutex = CreateMutex(NULL, false, NULL);
@@ -329,6 +329,14 @@ Serial::SerialImpl::reconfigurePort ()
     dcbSerialParams.fInX = false;
   }
 
+  // software flow control characters (setXonXoffChars)
+  dcbSerialParams.XonChar = static_cast<char>(xon_char_);
+  dcbSerialParams.XoffChar = static_cast<char>(xoff_char_);
+  // RS-485: the driver raises RTS while sending (not with RTS/CTS flow control)
+  if (rs485_enabled_ && flowcontrol_ != flowcontrol_hardware) {
+    dcbSerialParams.fRtsControl = RTS_CONTROL_TOGGLE;
+  }
+
   // activate settings
   if (!SetCommState(fd_, &dcbSerialParams)){
     CloseHandle(fd_);
@@ -344,6 +352,12 @@ Serial::SerialImpl::reconfigurePort ()
   timeouts.WriteTotalTimeoutMultiplier = timeout_.write_timeout_multiplier;
   if (!SetCommTimeouts(fd_, &timeouts)) {
     THROW (IOException, "Error setting timeouts.");
+  }
+
+  // RTS_CONTROL_DISABLE above drops RTS: the level set by setRTS comes back
+  // (not while the driver drives it: RTS/CTS flow control or RS-485).
+  if (rts_level_ != -1 && flowcontrol_ != flowcontrol_hardware && !rs485_enabled_) {
+    EscapeCommFunction (fd_, rts_level_ ? SETRTS : CLRRTS);
   }
 }
 
@@ -646,6 +660,7 @@ Serial::SerialImpl::setRTS (bool level)
   if (is_open_ == false) {
     throw PortNotOpenedException ("Serial::setRTS");
   }
+  rts_level_ = level ? 1 : 0;
   if (level) {
     EscapeCommFunction (fd_, SETRTS);
   } else {
@@ -782,13 +797,7 @@ Serial::SerialImpl::setXonXoffChars (uint8_t xon, uint8_t xoff)
 {
   xon_char_ = xon;
   xoff_char_ = xoff;
-  if (!is_open_) return;
-  DCB dcb = {0};
-  dcb.DCBlength = sizeof(dcb);
-  if (!GetCommState (fd_, &dcb)) return;
-  dcb.XonChar  = static_cast<char>(xon);
-  dcb.XoffChar = static_cast<char>(xoff);
-  SetCommState (fd_, &dcb);
+  if (is_open_) reconfigurePort ();
 }
 
 void
@@ -796,13 +805,10 @@ Serial::SerialImpl::setRS485Mode (bool enabled,
                                   uint32_t /*rts_delay_before_send_us*/,
                                   uint32_t /*rts_delay_after_send_us*/)
 {
+  // Kept and applied by reconfigurePort (also at every open): switching it
+  // off gives RTS back to the flow control and to setRTS.
   rs485_enabled_ = enabled;
-  if (!is_open_) return;
-  DCB dcb = {0};
-  dcb.DCBlength = sizeof(dcb);
-  if (!GetCommState (fd_, &dcb)) return;
-  dcb.fRtsControl = enabled ? RTS_CONTROL_TOGGLE : RTS_CONTROL_DISABLE;
-  SetCommState (fd_, &dcb);
+  if (is_open_) reconfigurePort ();
 }
 
 bool

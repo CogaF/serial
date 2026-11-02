@@ -13,6 +13,7 @@
 #include <thread>
 
 #include <fcntl.h>
+#include <termios.h>
 #include <pty.h>
 #include <unistd.h>
 
@@ -134,6 +135,24 @@ int main ()
         if (!threw) {
             std::fprintf (stderr, "note: TIOCEXCL not enforced on this pty\n");
         }
+        ::close (master);
+    }
+
+    // ----- settings made before open() apply when it opens -----
+    {
+        int master = -1;
+        std::string slave_path;
+        REQUIRE (open_pty (master, slave_path) == 0);
+        serial::Serial s;
+        s.setPort (slave_path);
+        s.setXonXoffChars (0x01, 0x02);
+        s.open ();
+        struct termios t;
+        REQUIRE (tcgetattr (s.getNativeHandle (), &t) == 0);
+        REQUIRE (t.c_cc[VSTART] == 0x01 && t.c_cc[VSTOP] == 0x02);
+        s.setBaudrate (9600); // a reconfigure keeps them
+        REQUIRE (tcgetattr (s.getNativeHandle (), &t) == 0);
+        REQUIRE (t.c_cc[VSTART] == 0x01 && t.c_cc[VSTOP] == 0x02);
         ::close (master);
     }
 

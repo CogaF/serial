@@ -173,6 +173,11 @@ Serial::SerialImpl::open ()
   reconfigurePort();
   is_open_ = true;
 
+  // What was asked before opening (or before the last close) applies again.
+  if (exclusive_) setExclusive (true);
+  if (low_latency_) setLowLatency (true);
+  if (rs485_enabled_) setRS485Mode (true, rs485_delay_before_us_, rs485_delay_after_us_);
+
   // Set up a wake-up descriptor pair used by cancelRead to break the
   // reader out of its pselect() wait. On Linux we prefer an eventfd;
   // elsewhere a pipe pair is used.
@@ -449,6 +454,9 @@ Serial::SerialImpl::reconfigurePort ()
   // to read before each call, so we should never needlessly poll
   options.c_cc[VMIN] = 0;
   options.c_cc[VTIME] = 0;
+  // software flow control characters (setXonXoffChars)
+  options.c_cc[VSTART] = xon_char_;
+  options.c_cc[VSTOP]  = xoff_char_;
 
   // activate settings
   ::tcsetattr (fd_, TCSANOW, &options);
@@ -1132,12 +1140,7 @@ Serial::SerialImpl::setXonXoffChars (uint8_t xon, uint8_t xoff)
 {
   xon_char_ = xon;
   xoff_char_ = xoff;
-  if (!is_open_) return;
-  struct termios options;
-  if (tcgetattr (fd_, &options) == -1) return;
-  options.c_cc[VSTART] = xon;
-  options.c_cc[VSTOP]  = xoff;
-  tcsetattr (fd_, TCSANOW, &options);
+  if (is_open_) reconfigurePort ();
 }
 
 void
