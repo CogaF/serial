@@ -125,7 +125,7 @@ Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
   : port_ (port), fd_ (-1), is_open_ (false), xonxoff_ (false), rtscts_ (false),
     baudrate_ (baudrate), parity_ (parity),
     bytesize_ (bytesize), stopbits_ (stopbits), flowcontrol_ (flowcontrol),
-    wakeup_read_fd_ (-1), wakeup_write_fd_ (-1),
+    wakeup_read_fd_ (-1), wakeup_write_fd_ (-1), read_cancelled_ (false),
     line_errors_ (0),
     rs485_enabled_ (false), rs485_delay_before_us_ (0), rs485_delay_after_us_ (0),
     exclusive_ (false), low_latency_ (false),
@@ -585,14 +585,12 @@ Serial::SerialImpl::waitReadable (uint32_t timeout)
   if (r == 0) {
     return false;
   }
-  // Wake-up fired: drain it and report "not readable" so the read loop
-  // propagates the cancel as a zero-byte return.
+  // Wake-up fired (cancelRead): drain it and tell read() to stop.
   if (wakeup_read_fd_ != -1 && FD_ISSET (wakeup_read_fd_, &readfds)) {
-    uint8_t drain[64];
+    uint64_t drain[8]; // an eventfd is read 8 bytes at a time
     while (::read (wakeup_read_fd_, drain, sizeof(drain)) > 0) {}
-    if (!FD_ISSET (fd_, &readfds)) {
-      return false;
-    }
+    read_cancelled_ = true;
+    return false;
   }
   // This shouldn't happen, if r > 0 our fd has to be in the list!
   if (!FD_ISSET (fd_, &readfds)) {
@@ -642,7 +640,13 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
     uint32_t timeout = std::min(static_cast<uint32_t> (timeout_remaining_ms),
                                 timeout_.inter_byte_timeout);
     // Wait for the device to be readable, and then attempt to read.
-    if (waitReadable(timeout)) {
+    const bool readable = waitReadable(timeout);
+    if (read_cancelled_) {
+      // cancelRead(): return what was read so far, at once.
+      read_cancelled_ = false;
+      break;
+    }
+    if (readable) {
       // If it's a fixed-length multi-byte read, insert a wait here so that
       // we can attempt to grab the whole thing in a single IO call. Skip
       // this wait if a non-max inter_byte_timeout is specified.
@@ -656,12 +660,8 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
       //  Then returning so that select can block again.
       ssize_t bytes_read_now =
         ::read (fd_, buf + bytes_read, size - bytes_read);
-      if (bytes_read_now < 0 && errno == EIO) {
-        // Treat EIO as a transient framing-level error. Simple
-        // accumulator: more precise classification (parity vs frame)
-        // would require PARMRK + INPCK; see docs.
-        line_errors_ |= serial::line_error_frame;
-        continue;
+      if (bytes_read_now < 0 && (errno == EAGAIN || errno == EINTR)) {
+        continue; // nothing after all (another reader took it), wait again
       }
       // read should always return some data as select reported it was
       // ready to read when we get to this point.
@@ -1259,8 +1259,16 @@ void
 Serial::SerialImpl::cancelRead ()
 {
   if (wakeup_write_fd_ != -1) {
-    uint8_t b = 1;
-    ssize_t n = ::write (wakeup_write_fd_, &b, 1);
+    // An eventfd (one descriptor for both ends) only takes 8-byte writes;
+    // a pipe takes one byte.
+    ssize_t n;
+    if (wakeup_write_fd_ == wakeup_read_fd_) {
+      uint64_t one = 1;
+      n = ::write (wakeup_write_fd_, &one, sizeof (one));
+    } else {
+      uint8_t b = 1;
+      n = ::write (wakeup_write_fd_, &b, 1);
+    }
     (void)n;
   }
 }

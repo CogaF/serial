@@ -455,8 +455,12 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
   if (!is_open_) {
     throw PortNotOpenedException ("Serial::read");
   }
-  DWORD bytes_read;
+  DWORD bytes_read = 0;
   if (!ReadFile(fd_, buf, static_cast<DWORD>(size), &bytes_read, NULL)) {
+    if (GetLastError() == ERROR_OPERATION_ABORTED) {
+      // cancelRead() (CancelIoEx): what was read so far, no error.
+      return (size_t) (bytes_read);
+    }
     stringstream ss;
     ss << "Error while reading from the serial port: " << GetLastError();
     THROW (IOException, ss.str().c_str());

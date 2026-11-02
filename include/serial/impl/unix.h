@@ -252,6 +252,8 @@ private:
   // available; on other POSIX systems a classic pipe pair is used.
   int wakeup_read_fd_;
   int wakeup_write_fd_;
+  // Set by waitReadable when the wake-up fired: read() returns at once.
+  bool read_cancelled_;
 
   // Accumulated line-error bitmask (see serial::LineError in serial.h).
   uint32_t line_errors_;

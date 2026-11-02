@@ -56,7 +56,7 @@ int main ()
         REQUIRE (open_pty (master, slave_path) == 0);
         serial::Serial s (slave_path, 115200, serial::Timeout::simpleTimeout (500));
         const char* msg = "hello";
-        ::write (master, msg, 5);
+        REQUIRE (::write (master, msg, 5) == 5);
         std::string got = s.read (5);
         REQUIRE (got == "hello");
         ::close (master);
@@ -69,7 +69,7 @@ int main ()
         REQUIRE (open_pty (master, slave_path) == 0);
         serial::Serial s (slave_path, 115200, serial::Timeout::simpleTimeout (100));
         REQUIRE (s.waitReadable () == false);
-        ::write (master, "x", 1);
+        REQUIRE (::write (master, "x", 1) == 1);
         REQUIRE (s.waitReadable () == true);
         ::close (master);
     }
@@ -88,10 +88,32 @@ int main ()
             finished.store (true);
         });
         std::this_thread::sleep_for (std::chrono::milliseconds (100));
+        const auto cancelled_at = std::chrono::steady_clock::now ();
         s.cancelRead ();
         reader.join ();
+        const auto took = std::chrono::duration_cast<std::chrono::milliseconds> (
+            std::chrono::steady_clock::now () - cancelled_at).count ();
         REQUIRE (finished.load ());
+        REQUIRE (took < 1000); // at once, not after the 60 s read timeout
         ::close (master);
+    }
+
+    // ----- the device goes away: read reports it -----
+    {
+        int master = -1;
+        std::string slave_path;
+        REQUIRE (open_pty (master, slave_path) == 0);
+        serial::Serial s (slave_path, 115200, serial::Timeout::simpleTimeout (500));
+        ::close (master);
+        bool threw = false;
+        try {
+            s.read (1);
+        } catch (const serial::SerialException&) {
+            threw = true;
+        } catch (const serial::IOException&) {
+            threw = true;
+        }
+        REQUIRE (threw);
     }
 
     // ----- setExclusive: second open fails -----
