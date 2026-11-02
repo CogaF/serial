@@ -32,6 +32,9 @@ Changelog for package serial
   read from string properties; an empty name converts safely.
 * Windows ``PortInfo::serial_number``: read from USB and FTDI instance ids
   only (it was "0000" for FTDI adapters and "0" for built-in ports).
+* Visual Studio: the Release libraries (static and DLL) are built without
+  whole-program optimization (``/GL``), so they link with any later compiler
+  version (a ``/GL`` library fails with C1047 on another version).
 * Documentation matches the code: ``waitReadable`` / ``waitForModemChange``
   check every few ms on Windows (no overlapped ``WaitCommEvent``),
   ``setLowLatency`` is a no-op on Windows.
