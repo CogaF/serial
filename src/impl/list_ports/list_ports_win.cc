@@ -27,7 +27,9 @@ static const DWORD hardware_id_max_length = 256;
 // Convert a wide Unicode string to an UTF8 string
 std::string utf8_encode(const std::wstring &wstr)
 {
+	if (wstr.empty()) return std::string();
 	int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+	if (size_needed <= 0) return std::string();
 	std::string strTo( size_needed, 0 );
 	WideCharToMultiByte                  (CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
 	return strTo;
@@ -163,11 +165,12 @@ serial::list_ports()
 		// A tail with '&' is an id Windows made up (no serial in the
 		// device); other buses (ACPI, PCI...) have none.
 		{
-			TCHAR instance_id[256];
+			TCHAR instance_id[256] = {};
 			DWORD inst_len = 0;
 			if (SetupDiGetDeviceInstanceId(device_info_set, &device_info_data,
-				instance_id, 256, &inst_len))
+				instance_id, 255, &inst_len))
 			{
+				instance_id[255] = 0; // always ends here
 #ifdef UNICODE
 				std::string iid = utf8_encode(instance_id);
 #else
@@ -189,17 +192,24 @@ serial::list_ports()
 		}
 
 		// Manufacturer, location and driver service name.
+		// A string property, cut at its real length: the registry does not
+		// promise a terminating zero, and a property that is not a string
+		// (or does not fit) gives "".
 		auto fetch_prop = [&](DWORD prop) -> std::string {
 			TCHAR buf[256];
-			DWORD len = 0;
+			DWORD type = 0;
+			DWORD len = 0; // bytes
 			if (!SetupDiGetDeviceRegistryProperty(device_info_set, &device_info_data,
-				prop, NULL, (PBYTE)buf, sizeof(buf), &len))
+				prop, &type, (PBYTE)buf, sizeof(buf), &len))
 				return std::string();
-			if (len == 0) return std::string();
+			if (type != REG_SZ || len == 0 || len > sizeof(buf)) return std::string();
+			size_t chars = len / sizeof(TCHAR);
+			size_t n = 0;
+			while (n < chars && buf[n] != 0) ++n;
 #ifdef UNICODE
-			return utf8_encode(buf);
+			return utf8_encode(std::wstring(buf, n));
 #else
-			return std::string(buf);
+			return std::string(buf, n);
 #endif
 		};
 		port_entry.manufacturer = fetch_prop(SPDRP_MFG);

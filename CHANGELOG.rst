@@ -27,6 +27,9 @@ Changelog for package serial
   unregister itself. Windows uses device notifications instead of
   listing the ports every second; Linux without libudev compares the
   port list instead of refusing (-1).
+* Windows ``list_ports``: the new ``PortInfo`` strings (maker, product,
+  location, driver, serial number) are cut at their real length and only
+  read from string properties; an empty name converts safely.
 * Windows ``PortInfo::serial_number``: read from USB and FTDI instance ids
   only (it was "0000" for FTDI adapters and "0" for built-in ports).
 * Documentation matches the code: ``waitReadable`` / ``waitForModemChange``
