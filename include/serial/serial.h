@@ -952,9 +952,13 @@ list_ports();
 using HotplugCallback = std::function<void(const PortInfo&, bool added)>;
 
 /*! Register a hotplug callback. Returns a non-negative token on success,
- *  or -1 when hotplug monitoring is not available in this build (for
- *  example Linux without libudev). Starts a background monitor thread on
- *  first registration. */
+ *  or -1 when hotplug monitoring cannot start. Starts a background monitor
+ *  thread on first registration: Windows - device notifications
+ *  (RegisterDeviceNotification) plus a check every 5 s; Linux - udev events
+ *  (libudev), or the port list compared every second without it; macOS -
+ *  the port list compared every second. The callback runs on that thread:
+ *  a GUI hands the event over to its own thread. It may unregister itself.
+ *  The thread stops when the last callback is unregistered, or at exit. */
 SERIAL_API int registerHotplugCallback (HotplugCallback cb);
 
 /*! Unregister a previously-registered callback. Stops the background

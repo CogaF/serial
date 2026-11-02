@@ -4,8 +4,9 @@
  *
  * When built against libudev (SERIAL_HAVE_LIBUDEV) the worker opens a
  * NETLINK_KOBJECT_UEVENT monitor filtered on the tty subsystem and
- * dispatches udev's own add/remove events. Without libudev the worker
- * falls back to diffing list_ports() periodically. (polling fallback) */
+ * dispatches udev's own add/remove events. Without libudev (or if the
+ * monitor cannot start) the worker compares list_ports() every second.
+ * (polling fallback) */
 
 #include "serial/impl/hotplug.h"
 
@@ -27,21 +28,24 @@ namespace detail {
 
 namespace {
 
-std::thread            worker_thread;
-std::atomic<bool>      worker_stop { false };
-std::mutex             worker_mutex;
+HotplugThread& worker ()
+{
+    static HotplugThread w;
+    return w;
+}
 
 #ifdef SERIAL_HAVE_LIBUDEV
-void run_udev ()
+// udev's own add / remove events; false if the monitor cannot start.
+bool run_udev ()
 {
     struct udev* u = udev_new ();
-    if (!u) return;
+    if (!u) return false;
     struct udev_monitor* mon = udev_monitor_new_from_netlink (u, "udev");
-    if (!mon) { udev_unref (u); return; }
+    if (!mon) { udev_unref (u); return false; }
     udev_monitor_filter_add_match_subsystem_devtype (mon, "tty", nullptr);
     udev_monitor_enable_receiving (mon);
     int fd = udev_monitor_get_fd (mon);
-    while (!worker_stop.load ()) {
+    while (!worker ().stopping ()) {
         struct pollfd pfd = { fd, POLLIN, 0 };
         int r = ::poll (&pfd, 1, 200);
         if (r <= 0) continue;
@@ -68,32 +72,20 @@ void run_udev ()
     }
     udev_monitor_unref (mon);
     udev_unref (u);
+    return true;
 }
 #endif
 
+// Without libudev (or if its monitor cannot start): the port list is
+// compared every second. (polling fallback)
 void run_polling ()
 {
     std::set<std::string> known;
-    bool first_pass = true;
-    while (!worker_stop.load ()) {
-        auto ports = list_ports ();
-        std::set<std::string> current;
-        for (auto& p : ports) current.insert (p.port);
-        if (!first_pass) {
-            for (auto& p : ports) {
-                if (known.find (p.port) == known.end ())
-                    dispatchHotplugEvent (p, true);
-            }
-            for (auto& old : known) {
-                if (current.find (old) == current.end ()) {
-                    PortInfo removed; removed.port = old;
-                    dispatchHotplugEvent (removed, false);
-                }
-            }
-        }
-        known = std::move (current);
-        first_pass = false;
-        for (int i = 0; i < 10 && !worker_stop.load (); ++i)
+    bool first = true;
+    while (!worker ().stopping ()) {
+        comparePorts (known, first);
+        first = false;
+        for (int i = 0; i < 10 && !worker ().stopping (); ++i)
             std::this_thread::sleep_for (std::chrono::milliseconds (100));
     }
 }
@@ -101,35 +93,24 @@ void run_polling ()
 void run ()
 {
 #ifdef SERIAL_HAVE_LIBUDEV
-    run_udev ();
-#else
-    run_polling ();
+    if (run_udev ()) return;
 #endif
+    run_polling ();
 }
 
 } // namespace
 
 bool startHotplugWorker ()
 {
-    std::lock_guard<std::mutex> lock (worker_mutex);
-    if (worker_thread.joinable ()) return true;
-#ifndef SERIAL_HAVE_LIBUDEV
-    // Spec: return false (and thus -1 from register) when libudev is
-    // not available. The polling fallback above is kept for builds that
-    // explicitly want it, but the default is to signal "unsupported".
-    return false;
-#else
-    worker_stop.store (false);
-    worker_thread = std::thread (&run);
+    std::lock_guard<std::mutex> lock (worker ().mutex ());
+    if (!worker ().running ()) worker ().start (&run);
     return true;
-#endif
 }
 
 void stopHotplugWorker ()
 {
-    std::lock_guard<std::mutex> lock (worker_mutex);
-    worker_stop.store (true);
-    if (worker_thread.joinable ()) worker_thread.join ();
+    std::lock_guard<std::mutex> lock (worker ().mutex ());
+    worker ().stop ();
 }
 
 } // namespace detail

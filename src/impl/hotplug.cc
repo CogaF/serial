@@ -46,6 +46,25 @@ void dispatchHotplugEvent (const PortInfo& info, bool added)
     }
 }
 
+void comparePorts (std::set<std::string>& known, bool first)
+{
+    std::vector<PortInfo> ports;
+    try { ports = list_ports (); } catch (...) { return; }
+    std::set<std::string> current;
+    for (auto& p : ports) current.insert (p.port);
+    if (!first) {
+        for (auto& p : ports)
+            if (known.find (p.port) == known.end ()) dispatchHotplugEvent (p, true);
+        for (auto& old : known)
+            if (current.find (old) == current.end ()) {
+                PortInfo removed;
+                removed.port = old;
+                dispatchHotplugEvent (removed, false);
+            }
+    }
+    known = std::move (current);
+}
+
 } // namespace detail
 
 int registerHotplugCallback (HotplugCallback cb)

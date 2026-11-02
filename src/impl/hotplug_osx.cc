@@ -19,33 +19,20 @@ namespace detail {
 
 namespace {
 
-std::thread            worker_thread;
-std::atomic<bool>      worker_stop { false };
-std::mutex             worker_mutex;
+HotplugThread& worker ()
+{
+    static HotplugThread w;
+    return w;
+}
 
 void run ()
 {
     std::set<std::string> known;
-    bool first_pass = true;
-    while (!worker_stop.load ()) {
-        auto ports = list_ports ();
-        std::set<std::string> current;
-        for (auto& p : ports) current.insert (p.port);
-        if (!first_pass) {
-            for (auto& p : ports) {
-                if (known.find (p.port) == known.end ())
-                    dispatchHotplugEvent (p, true);
-            }
-            for (auto& old : known) {
-                if (current.find (old) == current.end ()) {
-                    PortInfo removed; removed.port = old;
-                    dispatchHotplugEvent (removed, false);
-                }
-            }
-        }
-        known = std::move (current);
-        first_pass = false;
-        for (int i = 0; i < 10 && !worker_stop.load (); ++i)
+    bool first = true;
+    while (!worker ().stopping ()) {
+        comparePorts (known, first);
+        first = false;
+        for (int i = 0; i < 10 && !worker ().stopping (); ++i)
             std::this_thread::sleep_for (std::chrono::milliseconds (100));
     }
 }
@@ -54,18 +41,15 @@ void run ()
 
 bool startHotplugWorker ()
 {
-    std::lock_guard<std::mutex> lock (worker_mutex);
-    if (worker_thread.joinable ()) return true;
-    worker_stop.store (false);
-    worker_thread = std::thread (&run);
+    std::lock_guard<std::mutex> lock (worker ().mutex ());
+    if (!worker ().running ()) worker ().start (&run);
     return true;
 }
 
 void stopHotplugWorker ()
 {
-    std::lock_guard<std::mutex> lock (worker_mutex);
-    worker_stop.store (true);
-    if (worker_thread.joinable ()) worker_thread.join ();
+    std::lock_guard<std::mutex> lock (worker ().mutex ());
+    worker ().stop ();
 }
 
 } // namespace detail
